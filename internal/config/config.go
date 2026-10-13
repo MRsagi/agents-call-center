@@ -20,7 +20,8 @@ type Config struct {
 	RingTimeout     time.Duration
 	LineRecoverWait time.Duration
 	FeatureCode     string
-	LineBackend     LineBackend
+	LineBackend         LineBackend
+	VirtualControlBind  string
 }
 
 func DefaultDataDir() string {
@@ -38,6 +39,7 @@ func Default() Config {
 		RingTimeout:     90 * time.Second,
 		LineRecoverWait: 3 * time.Second,
 		FeatureCode:     "*1",
-		LineBackend:     LineBackendFake,
+		LineBackend:        LineBackendFake,
+		VirtualControlBind: "127.0.0.1:8742",
 	}
 }

@@ -66,7 +66,17 @@ func NewWithAdapters(cfg config.Config, ad Adapters) (*App, error) {
 		switch cfg.LineBackend {
 		case config.LineBackendFake:
 			ln = line.NewFake(line.FakeScript{})
-		case config.LineBackendSIP, config.LineBackendVirtual:
+		case config.LineBackendVirtual:
+			vc := line.VirtualControlFromEnv()
+			if cfg.VirtualControlBind != "" {
+				vc.ControlAddr = cfg.VirtualControlBind
+			}
+			vln, verr := line.NewVirtual(vc)
+			if verr != nil {
+				return nil, verr
+			}
+			ln = vln
+		case config.LineBackendSIP:
 			return nil, fmt.Errorf("line backend %q not implemented", cfg.LineBackend)
 		default:
 			return nil, fmt.Errorf("unknown line backend %q", cfg.LineBackend)
