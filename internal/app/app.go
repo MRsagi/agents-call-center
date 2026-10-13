@@ -12,6 +12,7 @@ import (
 	"github.com/MRsagi/agents-call-center/internal/domain"
 	"github.com/MRsagi/agents-call-center/internal/focus"
 	"github.com/MRsagi/agents-call-center/internal/line"
+	sipline "github.com/MRsagi/agents-call-center/internal/line/sip"
 	"github.com/MRsagi/agents-call-center/internal/runner"
 	"github.com/MRsagi/agents-call-center/internal/synth"
 	"github.com/MRsagi/agents-call-center/internal/tray"
@@ -84,7 +85,18 @@ func NewWithAdapters(cfg config.Config, ad Adapters) (*App, error) {
 			}
 			ln = vln
 		case config.LineBackendSIP:
-			return nil, fmt.Errorf("line backend %q not implemented", cfg.LineBackend)
+			sln, serr := sipline.New(sipline.Config{
+				Bind:       cfg.SIPBind,
+				User:       cfg.SIPUser,
+				Password:   cfg.SIPPassword,
+				Realm:      cfg.SIPRealm,
+				Extension:  cfg.SIPExtension,
+				PublicHost: cfg.SIPPublicHost,
+			})
+			if serr != nil {
+				return nil, serr
+			}
+			ln = sln
 		default:
 			return nil, fmt.Errorf("unknown line backend %q", cfg.LineBackend)
 		}

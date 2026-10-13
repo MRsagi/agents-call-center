@@ -38,6 +38,12 @@ type Config struct {
 	SynthBackend        SynthBackend
 	FocusBackend        FocusBackend
 	VirtualControlBind  string
+	SIPBind             string
+	SIPUser             string
+	SIPPassword         string
+	SIPRealm            string
+	SIPExtension        string
+	SIPPublicHost       string
 }
 
 func DefaultDataDir() string {
@@ -59,5 +65,10 @@ func Default() Config {
 		SynthBackend:       SynthBackendFake,
 		FocusBackend:       FocusBackendFake,
 		VirtualControlBind: "127.0.0.1:8742",
+		SIPBind:            "0.0.0.0:5060",
+		SIPUser:            "acc",
+		SIPPassword:        "acc",
+		SIPRealm:           "agents-call-center",
+		SIPExtension:       "100",
 	}
 }
