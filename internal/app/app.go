@@ -64,6 +64,9 @@ func NewWithAdapters(cfg config.Config, ad Adapters) (*App, error) {
 	if cfg.SynthBackend == "" {
 		cfg.SynthBackend = def.SynthBackend
 	}
+	if cfg.FocusBackend == "" {
+		cfg.FocusBackend = def.FocusBackend
+	}
 
 	ln := ad.Line
 	if ln == nil {
@@ -99,7 +102,14 @@ func NewWithAdapters(cfg config.Config, ad Adapters) (*App, error) {
 	}
 	foc := ad.Focus
 	if foc == nil {
-		foc = &focus.Fake{}
+		switch cfg.FocusBackend {
+		case config.FocusBackendFake:
+			foc = &focus.Fake{}
+		case config.FocusBackendOS:
+			foc = focus.NewOS()
+		default:
+			return nil, fmt.Errorf("unknown focus backend %q", cfg.FocusBackend)
+		}
 	}
 
 	if err := os.MkdirAll(cfg.DataDir, 0o755); err != nil {

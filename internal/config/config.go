@@ -21,6 +21,13 @@ const (
 	SynthBackendOS   SynthBackend = "os"
 )
 
+type FocusBackend string
+
+const (
+	FocusBackendFake FocusBackend = "fake"
+	FocusBackendOS   FocusBackend = "os"
+)
+
 type Config struct {
 	HTTPBind        string
 	DataDir         string
@@ -29,6 +36,7 @@ type Config struct {
 	FeatureCode     string
 	LineBackend         LineBackend
 	SynthBackend        SynthBackend
+	FocusBackend        FocusBackend
 	VirtualControlBind  string
 }
 
@@ -49,6 +57,7 @@ func Default() Config {
 		FeatureCode:     "*1",
 		LineBackend:        LineBackendFake,
 		SynthBackend:       SynthBackendFake,
+		FocusBackend:       FocusBackendFake,
 		VirtualControlBind: "127.0.0.1:8742",
 	}
 }
