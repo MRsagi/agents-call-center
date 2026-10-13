@@ -15,7 +15,9 @@ Environment:
 
 ## Control commands (TCP, one line each)
 
-Connect with any TCP client (e.g. `nc 127.0.0.1 8742`):
+The control plane is **TCP only** (plain text, one command per line). There is no UDP control port.
+
+Connect with any TCP client (e.g. `nc 127.0.0.1 8742` or PowerShell `Test-NetConnection` + a TCP client):
 
 - `ANSWER` — pick up the ringing call
 - `DTMF 1` — send digit(s); `DTMF 12` sends `12`

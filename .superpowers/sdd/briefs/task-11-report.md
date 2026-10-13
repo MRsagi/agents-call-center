@@ -37,3 +37,13 @@ Full suite: `go test ./...` — pass.
 
 - Idle DTMF (feature codes) delivered when line is idle and not collecting.
 - Non-WAV synth bytes may not play on Windows `SoundPlayer`; playback failure is logged, not fatal.
+
+## Fix pass
+
+- `Virtual.Ring`: best-effort OS ring beep (async; does not fail Ring).
+- `README.md`: Virtual line section + 3-bullet manual checklist → `docs/virtual-line.md`.
+- `docs/virtual-line.md`: control plane documented as **TCP only** (no UDP).
+
+Tests: `go test ./internal/line/ -v` PASS; `go test ./...` PASS.
+
+Commit: `fix: Virtual Line ring beep and README checklist`

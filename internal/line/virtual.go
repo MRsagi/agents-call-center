@@ -106,6 +106,7 @@ func (v *Virtual) Ring(_ context.Context) error {
 	v.phase = phaseRinging
 	v.mu.Unlock()
 	v.cfg.Logf("RINGING")
+	go virtualRingBeep(v.cfg.Logf)
 	return nil
 }
 
@@ -324,6 +325,34 @@ func trimDigits(s string, max int) string {
 		return s[:max]
 	}
 	return s
+}
+
+func virtualRingBeep(logf func(format string, args ...any)) {
+	type beeper struct {
+		name string
+		args []string
+	}
+	var beepers []beeper
+	switch runtime.GOOS {
+	case "windows":
+		beepers = append(beepers, beeper{"powershell", []string{"-NoProfile", "-NonInteractive", "-Command", "[console]::beep(800,200)"}})
+	case "darwin":
+		beepers = append(beepers, beeper{"afplay", []string{"/System/Library/Sounds/Tink.aiff"}})
+		beepers = append(beepers, beeper{"osascript", []string{"-e", "beep"}})
+	default:
+		beepers = append(beepers, beeper{"sh", []string{"-c", "printf '\\a'"}})
+		beepers = append(beepers, beeper{"paplay", []string{"/usr/share/sounds/freedesktop/stereo/bell.oga"}})
+	}
+	for _, b := range beepers {
+		if _, err := exec.LookPath(b.name); err != nil {
+			continue
+		}
+		cmd := exec.Command(b.name, b.args...)
+		if err := cmd.Run(); err == nil {
+			return
+		}
+	}
+	logf("virtual line: ring beep skipped (no player available)")
 }
 
 func virtualPlayFile(ctx context.Context, path string, logf func(format string, args ...any)) error {
