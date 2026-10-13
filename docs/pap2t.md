@@ -63,8 +63,17 @@ Tray/status **Line up** is true when at least one REGISTER contact is stored for
 4. Answer; prompt audio should play (TTS as WAV/μ-law over RTP).
 5. Enter DTMF for reply; hang up cleanly (BYE).
 
+## Idle feature code `*1` (voicemail playback)
+
+While registered and **not** on an active acc call, dial **`*1`** on the FXS phone to hear the oldest unheard voicemail. acc collects idle DTMF via **SIP INFO** and **aggregates** digits with a ~1.5s pause between keys so `*` and `1` sent separately still match.
+
+If the mailbox is empty, the handset hears a short “No voicemail messages” prompt.
+
+**ATA caveat:** off-hook dialing without a SIP dialog may not send INFO on every PAP2T firmware build. If `*1` does nothing, use **`acc voicemail`** from the PC or enqueue a test call and use in-call DTMF instead.
+
 ## Limitations (v1)
 
 - DTMF: **SIP INFO only**; in-band and RFC2833 RTP events are not decoded.
+- Idle `*1` depends on SIP INFO + digit aggregation; off-hook idle dialing may be limited on the ATA.
 - Play: WAV (PCM/μ-law) and small AIFF PCM; other containers return an error (fake synth still uses comfort noise in tests).
 - TLS/SRTP and multiple simultaneous registrations are not supported.

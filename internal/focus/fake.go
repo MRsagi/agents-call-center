@@ -12,6 +12,7 @@ type Fake struct {
 	Focuses   []domain.FocusTarget
 	Typed     [][]string
 	FailFocus bool
+	FailType  bool
 }
 
 func (f *Fake) Focus(ctx context.Context, target domain.FocusTarget) error {
@@ -29,5 +30,8 @@ func (f *Fake) Type(ctx context.Context, keys []string) error {
 	defer f.mu.Unlock()
 	cp := append([]string(nil), keys...)
 	f.Typed = append(f.Typed, cp)
+	if f.FailType {
+		return context.Canceled
+	}
 	return nil
 }

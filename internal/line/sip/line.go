@@ -47,6 +47,7 @@ type Line struct {
 	publicHost    string
 
 	idleHandler func(digits string)
+	idleAgg     *line.IdleDigitAggregator
 
 	callMu      sync.Mutex
 	dialogSess  *sipgo.DialogClientSession
@@ -198,6 +199,13 @@ func (l *Line) Ready() bool {
 
 func (l *Line) OnIdleDigits(handler func(digits string)) {
 	l.idleHandler = handler
+	l.idleAgg = line.NewIdleDigitAggregator(line.DefaultIdleDigitTimeout, handler)
+}
+
+func (l *Line) ClearIdleDigits() {
+	if l.idleAgg != nil {
+		l.idleAgg.Clear()
+	}
 }
 
 // SetRXPCMHook tees inbound RTP audio (handset → acc) to sink when off-hook.
@@ -536,7 +544,9 @@ func (l *Line) onInfo(req *sip.Request, tx sip.ServerTransaction) {
 		}
 		return
 	}
-	if l.idleHandler != nil {
+	if l.idleAgg != nil {
+		l.idleAgg.Add(string(digit))
+	} else if l.idleHandler != nil {
 		l.idleHandler(string(digit))
 	}
 }

@@ -52,15 +52,27 @@ func TestVirtualLine_TCPControl(t *testing.T) {
 	if err := v.Play(ctx, []byte("not-a-wav")); err != nil {
 		t.Fatal(err)
 	}
+	collected := make(chan string, 1)
+	go func() {
+		d, err := v.CollectDigits(ctx, 1)
+		if err != nil {
+			t.Errorf("CollectDigits: %v", err)
+			collected <- ""
+			return
+		}
+		collected <- d
+	}()
+	time.Sleep(20 * time.Millisecond)
 	if err := virtualSendCommand(v.ControlAddr(), "DTMF 1"); err != nil {
 		t.Fatal(err)
 	}
-	digits, err := v.CollectDigits(ctx, 1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if digits != "1" {
-		t.Fatalf("digits=%q", digits)
+	select {
+	case digits := <-collected:
+		if digits != "1" {
+			t.Fatalf("digits=%q", digits)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timeout collecting digits")
 	}
 	if err := v.Hangup(ctx); err != nil {
 		t.Fatal(err)

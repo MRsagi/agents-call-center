@@ -169,10 +169,7 @@ func (r *Runner) processCall(ctx context.Context, c *domain.Call) {
 	c.Digits = digits
 
 	if err := r.deps.Focus.Type(ctx, focus.KeysForDigits(digits)); err != nil {
-		c.Status = domain.StatusFailed
-		c.Error = err.Error()
-		_ = r.deps.Line.Hangup(context.Background())
-		return
+		delivery = domain.DeliveryFocusMissed
 	}
 
 	_ = r.deps.Line.Hangup(context.Background())
@@ -180,11 +177,17 @@ func (r *Runner) processCall(ctx context.Context, c *domain.Call) {
 	c.Status = domain.StatusCompleted
 }
 
+const emptyVoicemailPrompt = "No voicemail messages"
+
 func (r *Runner) handleIdleDigits(ctx context.Context, digits string) {
+	defer r.clearIdleDigitBuffer()
 	switch r.deps.Dialplan.MatchIdle(digits) {
 	case domain.IdleVoicemail:
 		entry, err := r.deps.Voicemail.OldestUnheard()
 		if err != nil {
+			if audio, synErr := r.deps.Synth.Synthesize(ctx, emptyVoicemailPrompt); synErr == nil {
+				_ = r.deps.Line.Play(ctx, audio)
+			}
 			return
 		}
 		audio, err := r.deps.Synth.Synthesize(ctx, entry.Prompt)
@@ -200,6 +203,12 @@ func (r *Runner) handleIdleDigits(ctx context.Context, digits string) {
 		_ = r.deps.Focus.Type(ctx, focus.KeysForDigits(collected))
 		_ = r.deps.Voicemail.MarkHeard(entry.CallID)
 	case domain.IdleError, domain.IdleNone:
+	}
+}
+
+func (r *Runner) clearIdleDigitBuffer() {
+	if ib, ok := r.deps.Line.(line.IdleDigitBuffer); ok {
+		ib.ClearIdleDigits()
 	}
 }
 

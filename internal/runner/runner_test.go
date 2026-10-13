@@ -74,6 +74,33 @@ func TestRunner_NoAnswerLeavesVoicemail(t *testing.T) {
 	}
 }
 
+func TestRunner_TypeFailStillCompletes(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	q := domain.NewQueue()
+	vmPath := filepath.Join(t.TempDir(), "vm.jsonl")
+	vm, _ := domain.OpenVoicemailStore(vmPath)
+	foc := &focus.Fake{FailType: true}
+	ln := line.NewFake(line.FakeScript{AnswerAfter: time.Millisecond, Digits: "3"})
+	syn := &synth.Fake{}
+	r := runner.New(runner.Deps{
+		Queue: q, Line: ln, Synth: syn, Focus: foc, Voicemail: vm,
+		Dialplan: domain.NewDialplan("*1"),
+		RingTimeout: time.Second,
+	})
+	go r.Start(ctx)
+	c, _ := domain.NewCall("pick", domain.ModeDTMF, domain.FocusTarget{App: "Cursor"}, 1)
+	_ = q.Enqueue(c)
+	waitStatus(t, q, c.ID, domain.StatusCompleted, 2*time.Second)
+	got, _ := q.Get(c.ID)
+	if got.Delivery != domain.DeliveryFocusMissed {
+		t.Fatalf("delivery=%q", got.Delivery)
+	}
+	if got.Digits != "3" {
+		t.Fatalf("digits=%q", got.Digits)
+	}
+}
+
 func TestRunner_FocusFailStillCompletes(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

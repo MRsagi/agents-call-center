@@ -29,6 +29,10 @@ func (s *Server) Handler() http.Handler {
 	return s.mux
 }
 
+func (s *Server) ValidateBind() error {
+	return validateLocalhostBind(s.app.Config.HTTPBind)
+}
+
 func (s *Server) ListenAndServe() error {
 	addr := s.app.Config.HTTPBind
 	if err := validateLocalhostBind(addr); err != nil {

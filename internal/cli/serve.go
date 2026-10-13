@@ -53,9 +53,15 @@ func runServe(ctx context.Context) error {
 	}
 	defer a.Stop()
 
+	fmt.Fprintf(os.Stderr, "acc: line backend %q (set ACC_LINE_BACKEND=sip|virtual|fake)\n", cfg.LineBackend)
+
+	apiSrv := api.NewServer(a)
+	if err := apiSrv.ValidateBind(); err != nil {
+		return err
+	}
 	srv := &http.Server{
 		Addr:    cfg.HTTPBind,
-		Handler: api.NewServer(a).Handler(),
+		Handler: apiSrv.Handler(),
 	}
 
 	errCh := make(chan error, 1)

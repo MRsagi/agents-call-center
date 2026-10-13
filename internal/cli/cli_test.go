@@ -48,6 +48,15 @@ func TestClient_CallAndStatus(t *testing.T) {
 
 	srv := &http.Server{Addr: addr, Handler: api.NewServer(a).Handler()}
 	go func() { _ = srv.ListenAndServe() }()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		resp, err := http.Get("http://" + addr + "/v1/health")
+		if err == nil {
+			resp.Body.Close()
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
 	defer func() {
 		shutdownCtx, c := context.WithTimeout(context.Background(), 2*time.Second)
 		defer c()

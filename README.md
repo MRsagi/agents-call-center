@@ -92,6 +92,8 @@ On `127.0.0.1:8742` (TCP), send `ANSWER` when logs show `RINGING`, then `DTMF` d
 
 If a call is not answered within the ring timeout (~90s), the prompt is stored as voicemail (JSONL under the data dir). While the line is **idle**, dial feature code **`*1`** (config default) to hear the oldest unheard message; DTMF still delivers to that call’s focus target. CLI summary: `acc voicemail`.
 
+**v1 idle `*1` on SIP:** DTMF must use **SIP INFO** (see [docs/pap2t.md](docs/pap2t.md)). Digits are aggregated with a ~1.5s inter-digit timeout so `*` and `1` sent one-at-a-time still match. Picking up the handset without an active call may not deliver INFO on some ATAs — use **`acc voicemail`** as a reliable fallback.
+
 ## Phone Mic (macOS + BlackHole)
 
 Route inbound SIP handset audio into a virtual mic for system dictation (BlackHole + sox). See [docs/phone-mic.md](docs/phone-mic.md).

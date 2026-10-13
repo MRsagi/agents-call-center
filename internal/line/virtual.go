@@ -48,6 +48,7 @@ type Virtual struct {
 	mu          sync.Mutex
 	ln          net.Listener
 	idleHandler func(digits string)
+	idleAgg     *IdleDigitAggregator
 
 	phase      callPhase
 	answerCh   chan struct{}
@@ -203,7 +204,17 @@ func (v *Virtual) Hangup(_ context.Context) error {
 func (v *Virtual) OnIdleDigits(handler func(digits string)) {
 	v.mu.Lock()
 	v.idleHandler = handler
+	v.idleAgg = NewIdleDigitAggregator(DefaultIdleDigitTimeout, handler)
 	v.mu.Unlock()
+}
+
+func (v *Virtual) ClearIdleDigits() {
+	v.mu.Lock()
+	agg := v.idleAgg
+	v.mu.Unlock()
+	if agg != nil {
+		agg.Clear()
+	}
 }
 
 func (v *Virtual) resetCallLocked() {
@@ -301,6 +312,7 @@ func (v *Virtual) deliverDTMF(digits string) {
 	collecting := v.collecting
 	phase := v.phase
 	handler := v.idleHandler
+	agg := v.idleAgg
 	ch := v.digitCh
 	v.mu.Unlock()
 
@@ -315,8 +327,12 @@ func (v *Virtual) deliverDTMF(digits string) {
 	if phase == phaseActive {
 		return
 	}
-	if handler != nil && phase == phaseIdle {
-		handler(digits)
+	if phase == phaseIdle {
+		if agg != nil {
+			agg.Add(digits)
+		} else if handler != nil {
+			handler(digits)
+		}
 	}
 }
 
