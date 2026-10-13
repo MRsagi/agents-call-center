@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"sync"
@@ -155,6 +156,8 @@ func NewWithAdapters(cfg config.Config, ad Adapters) (*App, error) {
 		}
 		if sln, ok := ln.(*sipline.Line); ok {
 			sln.SetRXPCMHook(pm.WritePCM)
+		} else {
+			log.Printf("phone mic: enabled but line backend %q has no RX PCM path (SIP only)", cfg.LineBackend)
 		}
 	}
 

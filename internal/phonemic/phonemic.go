@@ -1,12 +1,8 @@
 package phonemic
 
 import (
-	"errors"
 	"sync"
 )
-
-// ErrToolsMissing is returned when macOS Phone Mic is enabled but sox/BlackHole routing is unavailable.
-var ErrToolsMissing = errors.New("phonemic: sox not installed (brew install sox); install BlackHole for virtual mic")
 
 // PhoneMic feeds off-hook line RX audio into the host virtual microphone (macOS + BlackHole).
 type PhoneMic interface {

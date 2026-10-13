@@ -22,3 +22,8 @@ Not run (Windows CI host; BlackHole/sox macOS only).
 - macOS without sox: Phone Mic logs and no-ops (no BlackHole output).
 - μ-law decode is best-effort; no AEC/level normalization.
 - Core Audio device name must match `ACC_PHONE_MIC_DEVICE` exactly.
+
+## Fix pass (RX tee lifetime)
+- SIP `startRXPCM` uses call-scoped `context.Background()` cancel on `rtpSender.close()` (not `ringCtx`).
+- Test `TestStartRXPCMSurvivesRingContextCancel`; removed unused `ErrToolsMissing`; log when Phone Mic on non-SIP line.
+- `go test ./internal/line/sip/ ./internal/phonemic/ ./...` — pass.

@@ -278,7 +278,7 @@ func (l *Line) WaitAnswer(ctx context.Context) error {
 	rtp := l.rtp
 	l.callMu.Unlock()
 	if sink != nil && rtp != nil {
-		rtp.startRXPCM(ctx, sink)
+		rtp.startRXPCM(sink)
 	}
 	return nil
 }

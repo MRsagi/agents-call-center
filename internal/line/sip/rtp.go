@@ -502,14 +502,15 @@ func (r *rtpSender) close() {
 }
 
 // startRXPCM tees inbound RTP μ-law payloads to sink as 8 kHz mono PCM16 LE.
-func (r *rtpSender) startRXPCM(ctx context.Context, sink func([]byte)) {
+// RX lifetime is tied to the RTP session (until close()), not ring/answer timeouts.
+func (r *rtpSender) startRXPCM(sink func([]byte)) {
 	if r.conn == nil || sink == nil {
 		return
 	}
 	if r.rxCancel != nil {
 		r.rxCancel()
 	}
-	rxCtx, cancel := context.WithCancel(ctx)
+	rxCtx, cancel := context.WithCancel(context.Background())
 	r.rxCancel = cancel
 	go r.rxLoop(rxCtx, sink)
 }
