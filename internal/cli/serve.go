@@ -38,6 +38,7 @@ func runServe(ctx context.Context) error {
 	defer runCancel()
 
 	cfg := config.Default()
+	cfg.SynthBackend = config.SynthBackendOS
 	a, err := app.New(cfg)
 	if err != nil {
 		return err

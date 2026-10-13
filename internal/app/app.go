@@ -61,6 +61,9 @@ func NewWithAdapters(cfg config.Config, ad Adapters) (*App, error) {
 	if cfg.LineBackend == "" {
 		cfg.LineBackend = def.LineBackend
 	}
+	if cfg.SynthBackend == "" {
+		cfg.SynthBackend = def.SynthBackend
+	}
 
 	ln := ad.Line
 	if ln == nil {
@@ -85,7 +88,14 @@ func NewWithAdapters(cfg config.Config, ad Adapters) (*App, error) {
 	}
 	syn := ad.Synth
 	if syn == nil {
-		syn = &synth.Fake{}
+		switch cfg.SynthBackend {
+		case config.SynthBackendFake:
+			syn = &synth.Fake{}
+		case config.SynthBackendOS:
+			syn = synth.NewOS()
+		default:
+			return nil, fmt.Errorf("unknown synth backend %q", cfg.SynthBackend)
+		}
 	}
 	foc := ad.Focus
 	if foc == nil {

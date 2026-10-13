@@ -14,6 +14,13 @@ const (
 	LineBackendVirtual LineBackend = "virtual"
 )
 
+type SynthBackend string
+
+const (
+	SynthBackendFake SynthBackend = "fake"
+	SynthBackendOS   SynthBackend = "os"
+)
+
 type Config struct {
 	HTTPBind        string
 	DataDir         string
@@ -21,6 +28,7 @@ type Config struct {
 	LineRecoverWait time.Duration
 	FeatureCode     string
 	LineBackend         LineBackend
+	SynthBackend        SynthBackend
 	VirtualControlBind  string
 }
 
@@ -40,6 +48,7 @@ func Default() Config {
 		LineRecoverWait: 3 * time.Second,
 		FeatureCode:     "*1",
 		LineBackend:        LineBackendFake,
+		SynthBackend:       SynthBackendFake,
 		VirtualControlBind: "127.0.0.1:8742",
 	}
 }
