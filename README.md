@@ -14,6 +14,10 @@ Checklist:
 - Codec G.711 μ-law; DTMF **SIP INFO** (see pap2t doc if digits are missed).
 - Tray **Line up** after REGISTER; enqueue a call and confirm ring, audio, DTMF, hangup.
 
+## Phone Mic (macOS)
+
+Route inbound SIP handset audio into a virtual mic for system dictation (BlackHole + sox). See [docs/phone-mic.md](docs/phone-mic.md).
+
 ## Virtual line
 
 Manual speaker/keyboard testing without SIP hardware. Full notes: [docs/virtual-line.md](docs/virtual-line.md).

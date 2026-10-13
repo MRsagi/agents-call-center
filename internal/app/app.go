@@ -13,6 +13,7 @@ import (
 	"github.com/MRsagi/agents-call-center/internal/focus"
 	"github.com/MRsagi/agents-call-center/internal/line"
 	sipline "github.com/MRsagi/agents-call-center/internal/line/sip"
+	"github.com/MRsagi/agents-call-center/internal/phonemic"
 	"github.com/MRsagi/agents-call-center/internal/runner"
 	"github.com/MRsagi/agents-call-center/internal/synth"
 	"github.com/MRsagi/agents-call-center/internal/tray"
@@ -26,6 +27,7 @@ type App struct {
 	Line      line.Line
 	Synth     synth.Synthesizer
 	Focus     focus.Focuser
+	PhoneMic  phonemic.PhoneMic
 
 	mu         sync.Mutex
 	runCancel  context.CancelFunc
@@ -67,6 +69,9 @@ func NewWithAdapters(cfg config.Config, ad Adapters) (*App, error) {
 	}
 	if cfg.FocusBackend == "" {
 		cfg.FocusBackend = def.FocusBackend
+	}
+	if cfg.PhoneMicDevice == "" {
+		cfg.PhoneMicDevice = def.PhoneMicDevice
 	}
 	if cfg.LineBackend == config.LineBackendSIP {
 		if cfg.SIPBind == "" {
@@ -141,6 +146,18 @@ func NewWithAdapters(cfg config.Config, ad Adapters) (*App, error) {
 		}
 	}
 
+	var pm phonemic.PhoneMic
+	if cfg.PhoneMicEnabled {
+		var perr error
+		pm, perr = phonemic.New(phonemic.Config{Device: cfg.PhoneMicDevice})
+		if perr != nil {
+			return nil, perr
+		}
+		if sln, ok := ln.(*sipline.Line); ok {
+			sln.SetRXPCMHook(pm.WritePCM)
+		}
+	}
+
 	if err := os.MkdirAll(cfg.DataDir, 0o755); err != nil {
 		return nil, err
 	}
@@ -170,6 +187,7 @@ func NewWithAdapters(cfg config.Config, ad Adapters) (*App, error) {
 		Line:      ln,
 		Synth:     syn,
 		Focus:     foc,
+		PhoneMic:  pm,
 	}, nil
 }
 
@@ -178,6 +196,11 @@ func (a *App) Start(parent context.Context) error {
 	defer a.mu.Unlock()
 	if a.runCancel != nil {
 		return errors.New("app already started")
+	}
+	if a.PhoneMic != nil {
+		if err := a.PhoneMic.Start(); err != nil {
+			return fmt.Errorf("phone mic: %w", err)
+		}
 	}
 	ctx, cancel := context.WithCancel(parent)
 	done := make(chan struct{})
@@ -202,6 +225,9 @@ func (a *App) Stop() {
 	}
 	if done != nil {
 		<-done
+	}
+	if a.PhoneMic != nil {
+		a.PhoneMic.Stop()
 	}
 }
 

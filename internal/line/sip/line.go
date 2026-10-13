@@ -57,6 +57,8 @@ type Line struct {
 	digitCh     chan rune
 	collecting  bool
 	collectMax  int
+
+	rxPCM func([]byte)
 }
 
 func New(cfg Config) (*Line, error) {
@@ -198,6 +200,13 @@ func (l *Line) OnIdleDigits(handler func(digits string)) {
 	l.idleHandler = handler
 }
 
+// SetRXPCMHook tees inbound RTP audio (handset → acc) to sink when off-hook.
+func (l *Line) SetRXPCMHook(sink func([]byte)) {
+	l.callMu.Lock()
+	l.rxPCM = sink
+	l.callMu.Unlock()
+}
+
 func (l *Line) Ring(ctx context.Context) error {
 	l.callMu.Lock()
 	defer l.callMu.Unlock()
@@ -265,7 +274,12 @@ func (l *Line) WaitAnswer(ctx context.Context) error {
 
 	l.callMu.Lock()
 	l.answered = true
+	sink := l.rxPCM
+	rtp := l.rtp
 	l.callMu.Unlock()
+	if sink != nil && rtp != nil {
+		rtp.startRXPCM(ctx, sink)
+	}
 	return nil
 }
 

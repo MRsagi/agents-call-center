@@ -45,6 +45,8 @@ type Config struct {
 	SIPRealm            string
 	SIPExtension        string
 	SIPPublicHost       string
+	PhoneMicEnabled     bool
+	PhoneMicDevice      string
 }
 
 func DefaultDataDir() string {
@@ -78,6 +80,12 @@ func ApplyEnv(cfg *Config) {
 	if v := strings.TrimSpace(os.Getenv("ACC_SIP_PUBLIC_HOST")); v != "" {
 		cfg.SIPPublicHost = v
 	}
+	if v := strings.TrimSpace(os.Getenv("ACC_PHONE_MIC_ENABLED")); v != "" {
+		cfg.PhoneMicEnabled = v == "1" || strings.EqualFold(v, "true")
+	}
+	if v := strings.TrimSpace(os.Getenv("ACC_PHONE_MIC_DEVICE")); v != "" {
+		cfg.PhoneMicDevice = v
+	}
 }
 
 func Default() Config {
@@ -96,5 +104,6 @@ func Default() Config {
 		SIPPassword:        "acc",
 		SIPRealm:           "agents-call-center",
 		SIPExtension:       "100",
+		PhoneMicDevice:     "BlackHole 2ch",
 	}
 }

@@ -1,6 +1,7 @@
 package sip
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
 	"net"
@@ -400,6 +401,8 @@ type rtpSender struct {
 	ts     uint32
 	ssrc   uint32
 	mu     sync.Mutex
+
+	rxCancel context.CancelFunc
 }
 
 func newRTPSender(bindHost string) (*rtpSender, error) {
@@ -489,9 +492,84 @@ func (r *rtpSender) sendFrame(payload []byte) error {
 }
 
 func (r *rtpSender) close() {
+	if r.rxCancel != nil {
+		r.rxCancel()
+		r.rxCancel = nil
+	}
 	if r.conn != nil {
 		_ = r.conn.Close()
 	}
+}
+
+// startRXPCM tees inbound RTP μ-law payloads to sink as 8 kHz mono PCM16 LE.
+func (r *rtpSender) startRXPCM(ctx context.Context, sink func([]byte)) {
+	if r.conn == nil || sink == nil {
+		return
+	}
+	if r.rxCancel != nil {
+		r.rxCancel()
+	}
+	rxCtx, cancel := context.WithCancel(ctx)
+	r.rxCancel = cancel
+	go r.rxLoop(rxCtx, sink)
+}
+
+func (r *rtpSender) rxLoop(ctx context.Context, sink func([]byte)) {
+	buf := make([]byte, 2048)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+		_ = r.conn.SetReadDeadline(time.Now().Add(200 * time.Millisecond))
+		n, err := r.conn.Read(buf)
+		if err != nil {
+			if ne, ok := err.(net.Error); ok && ne.Timeout() {
+				continue
+			}
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				continue
+			}
+		}
+		if n <= 12 {
+			continue
+		}
+		pt := buf[1] & 0x7F
+		if pt != rtpPTPCMU {
+			continue
+		}
+		payload := buf[12:n]
+		if len(payload) == 0 {
+			continue
+		}
+		sink(ulawToPCM16LE(payload))
+	}
+}
+
+func ulawToPCM16LE(ulaw []byte) []byte {
+	out := make([]byte, len(ulaw)*2)
+	for i, b := range ulaw {
+		s := ulawToLinear(b)
+		binary.LittleEndian.PutUint16(out[i*2:i*2+2], uint16(s))
+	}
+	return out
+}
+
+func ulawToLinear(u byte) int16 {
+	u = ^u
+	sign := int16(1)
+	if u&0x80 != 0 {
+		sign = -1
+		u &= 0x7F
+	}
+	exp := int(u>>4) & 0x07
+	mant := int(u & 0x0F)
+	sample := ((mant << 3) + 0x84) << exp
+	return sign * int16(sample-0x84)
 }
 
 func parseDTMFSignal(body, contentType string) (rune, bool) {
