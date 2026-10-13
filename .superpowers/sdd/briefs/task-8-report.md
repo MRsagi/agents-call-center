@@ -26,7 +26,9 @@ go test ./... — PASS
 
 ## Commit
 
+- **SHA:** `ddc0b43`
 - **Subject:** `feat: add localhost HTTP API for enqueue and status`
+- **Note:** `git commit -m` fails (`unknown option trailer`); used `git-commit-tree.exe` + `git-update-ref.exe`.
 
 ## Concerns
 
