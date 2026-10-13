@@ -68,6 +68,23 @@ func NewWithAdapters(cfg config.Config, ad Adapters) (*App, error) {
 	if cfg.FocusBackend == "" {
 		cfg.FocusBackend = def.FocusBackend
 	}
+	if cfg.LineBackend == config.LineBackendSIP {
+		if cfg.SIPBind == "" {
+			cfg.SIPBind = def.SIPBind
+		}
+		if cfg.SIPPassword == "" {
+			cfg.SIPPassword = def.SIPPassword
+		}
+		if cfg.SIPRealm == "" {
+			cfg.SIPRealm = def.SIPRealm
+		}
+		if cfg.SIPExtension == "" {
+			cfg.SIPExtension = def.SIPExtension
+		}
+		if cfg.SIPUser == "" {
+			cfg.SIPUser = cfg.SIPExtension
+		}
+	}
 
 	ln := ad.Line
 	if ln == nil {

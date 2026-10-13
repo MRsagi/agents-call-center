@@ -2,6 +2,18 @@
 
 Local service that connects software agents to one human over a phone line (SIP/PSTN or a virtual line for development). See [CONTEXT.md](CONTEXT.md) for domain vocabulary.
 
+## PAP2T / embedded SIP line
+
+Hardware ATA on the LAN (e.g. Linksys PAP2T). Full settings: [docs/pap2t.md](docs/pap2t.md).
+
+Checklist:
+
+- Set `ACC_LINE_BACKEND=sip` (and optional `ACC_SIP_*` vars) then run `acc serve`.
+- Point the ATA proxy at the PC’s LAN IP, UDP 5060; open firewall for SIP + RTP.
+- User ID / Auth ID `100`, password `acc` (defaults; match `ACC_SIP_EXTENSION` / `ACC_SIP_PASSWORD`).
+- Codec G.711 μ-law; DTMF **SIP INFO** (see pap2t doc if digits are missed).
+- Tray **Line up** after REGISTER; enqueue a call and confirm ring, audio, DTMF, hangup.
+
 ## Virtual line
 
 Manual speaker/keyboard testing without SIP hardware. Full notes: [docs/virtual-line.md](docs/virtual-line.md).

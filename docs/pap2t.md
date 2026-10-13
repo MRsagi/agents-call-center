@@ -17,21 +17,39 @@ The call-center daemon can act as a minimal SIP registrar on your LAN. A PAP2T (
 | Proxy / Outbound Proxy | `<PC LAN IP>` (same host running `acc`) |
 | Register | Yes |
 | Register Expires | 3600 |
-| User ID / Auth ID | `100` (match `SIPExtension`, default `100`) |
+| User ID / Auth ID | `100` (digest username; matches `SIPExtension` / `SIPUser`, default `100`) |
 | Password | `acc` (match `SIPPassword`, default `acc`) |
 | Preferred codec | G.711 μ-law (PCMU) only if possible |
-| DTMF Tx Method | SIP INFO or RFC2833 (INFO is parsed; RFC2833 telephone-event in SDP is offered) |
+| DTMF Tx Method | **SIP INFO** (required for digit collection today) |
+
+### DTMF (SIP INFO)
+
+The embedded SIP line collects DTMF from **SIP INFO** requests (`Signal=` header or `application/dtmf-relay` body). RFC2833 RTP telephone-event is offered in SDP but **not decoded** yet.
+
+On the PAP2T, set **DTMF Tx Method** to **SIP INFO** (not in-band or Audio). If tones are ignored, use the ATA web UI to force INFO per FXS port and reboot the line.
 
 ## Run acc with SIP line
 
-Set config (env or future flags):
+Environment variables (read by `acc serve`):
 
-- `LineBackend`: `sip`
-- `SIPBind`: `0.0.0.0:5060`
-- `SIPExtension`: extension the ATA registers as (default `100`)
-- `SIPUser` / `SIPPassword` / `SIPRealm`: digest credentials for REGISTER
+| Variable | Purpose |
+|----------|---------|
+| `ACC_LINE_BACKEND` | `sip` to use embedded SIP (default `fake`) |
+| `ACC_SIP_BIND` | UDP listen, e.g. `0.0.0.0:5060` |
+| `ACC_SIP_EXTENSION` | Extension the ATA registers as (default `100`) |
+| `ACC_SIP_USER` | Digest username (default `100`; also accepts `SIPExtension`) |
+| `ACC_SIP_PASSWORD` | Digest password (default `acc`) |
+| `ACC_SIP_REALM` | Digest realm (default `agents-call-center`) |
+| `ACC_SIP_PUBLIC_HOST` | IPv4 advertised in SDP (auto-detect if unset) |
 
-Example (Go config in code today): use `config.Config{LineBackend: config.LineBackendSIP, ...}` when constructing the app.
+Example:
+
+```powershell
+$env:ACC_LINE_BACKEND = "sip"
+acc serve
+```
+
+**Play audio:** RTP expects 8 kHz G.711 μ-law. TTS should produce WAV; macOS AIFF is converted when small. Unsupported formats log an error instead of silent comfort noise.
 
 ## Readiness
 
@@ -47,6 +65,6 @@ Tray/status **Line up** is true when at least one REGISTER contact is stored for
 
 ## Limitations (v1)
 
-- DTMF collection uses **SIP INFO** (`Signal=` / `application/dtmf-relay`) when the ATA sends it; in-band DTMF is not decoded.
-- Non-WAV synth output is sent as short comfort noise (fake synth in tests).
+- DTMF: **SIP INFO only**; in-band and RFC2833 RTP events are not decoded.
+- Play: WAV (PCM/μ-law) and small AIFF PCM; other containers return an error (fake synth still uses comfort noise in tests).
 - TLS/SRTP and multiple simultaneous registrations are not supported.

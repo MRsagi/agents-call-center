@@ -29,7 +29,6 @@ func TestLine_RegisterReady(t *testing.T) {
 
 	line, err := sipline.New(sipline.Config{
 		Bind:       bind,
-		User:       "acc",
 		Password:   "acc",
 		Realm:      "agents-call-center",
 		Extension:  "100",
@@ -49,7 +48,7 @@ func TestLine_RegisterReady(t *testing.T) {
 		t.Fatal("listen addr empty")
 	}
 
-	if err := registerClient(t, serverAddr, "100", "acc", "acc"); err != nil {
+	if err := registerClient(t, serverAddr, "100", "100", "acc"); err != nil {
 		t.Fatalf("register: %v", err)
 	}
 

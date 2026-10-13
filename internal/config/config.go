@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -54,6 +55,31 @@ func DefaultDataDir() string {
 	return filepath.Join(dir, "agents-call-center")
 }
 
+// ApplyEnv overrides cfg fields when the corresponding ACC_* environment variables are set.
+func ApplyEnv(cfg *Config) {
+	if v := strings.TrimSpace(os.Getenv("ACC_LINE_BACKEND")); v != "" {
+		cfg.LineBackend = LineBackend(v)
+	}
+	if v := strings.TrimSpace(os.Getenv("ACC_SIP_BIND")); v != "" {
+		cfg.SIPBind = v
+	}
+	if v := strings.TrimSpace(os.Getenv("ACC_SIP_USER")); v != "" {
+		cfg.SIPUser = v
+	}
+	if v := strings.TrimSpace(os.Getenv("ACC_SIP_PASSWORD")); v != "" {
+		cfg.SIPPassword = v
+	}
+	if v := strings.TrimSpace(os.Getenv("ACC_SIP_REALM")); v != "" {
+		cfg.SIPRealm = v
+	}
+	if v := strings.TrimSpace(os.Getenv("ACC_SIP_EXTENSION")); v != "" {
+		cfg.SIPExtension = v
+	}
+	if v := strings.TrimSpace(os.Getenv("ACC_SIP_PUBLIC_HOST")); v != "" {
+		cfg.SIPPublicHost = v
+	}
+}
+
 func Default() Config {
 	return Config{
 		HTTPBind:        "127.0.0.1:8741",
@@ -66,7 +92,7 @@ func Default() Config {
 		FocusBackend:       FocusBackendFake,
 		VirtualControlBind: "127.0.0.1:8742",
 		SIPBind:            "0.0.0.0:5060",
-		SIPUser:            "acc",
+		SIPUser:            "100",
 		SIPPassword:        "acc",
 		SIPRealm:           "agents-call-center",
 		SIPExtension:       "100",

@@ -86,17 +86,33 @@ func buildOfferSDP(publicHost string, rtpPort int) string {
 	)
 }
 
-// audioToUlaw converts WAV/PCM/raw input to 8 kHz G.711 μ-law payload.
-func audioToUlaw(data []byte) []byte {
+const maxAIFFConvertBytes = 8 << 20 // 8 MiB
+
+// audioToUlaw converts WAV/AIFF/PCM/raw input to 8 kHz G.711 μ-law payload.
+func audioToUlaw(data []byte) ([]byte, error) {
 	if len(data) >= 12 && string(data[0:4]) == "RIFF" && string(data[8:12]) == "WAVE" {
 		if ulaw, ok := wavToUlaw(data); ok {
-			return ulaw
+			return ulaw, nil
 		}
+		return nil, fmt.Errorf("unsupported or invalid WAV (SIP Play needs 8 kHz PCM or μ-law WAV)")
+	}
+	if len(data) >= 12 && string(data[0:4]) == "FORM" {
+		formType := string(data[8:12])
+		if formType == "AIFF" || formType == "AIFC" {
+			if len(data) > maxAIFFConvertBytes {
+				return nil, fmt.Errorf("AIFF too large (%d bytes); export 8 kHz μ-law WAV for SIP Play", len(data))
+			}
+			if ulaw, ok := aiffToUlaw(data); ok {
+				return ulaw, nil
+			}
+			return nil, fmt.Errorf("unsupported or invalid AIFF (need uncompressed PCM; export WAV if needed)")
+		}
+		return nil, fmt.Errorf("unsupported audio container %q (SIP Play needs WAV or AIFF PCM)", formType)
 	}
 	if len(data) == 0 {
-		return comfortNoiseSamples(8000) // 1s silence
+		return comfortNoiseSamples(8000), nil // 1s silence
 	}
-	// Non-WAV (e.g. fake synth): short comfort noise proportional to payload size.
+	// Non-container payload (e.g. fake synth): short comfort noise proportional to size.
 	ms := len(data) * 20
 	if ms < 500 {
 		ms = 500
@@ -104,7 +120,126 @@ func audioToUlaw(data []byte) []byte {
 	if ms > 30000 {
 		ms = 30000
 	}
-	return comfortNoiseSamples(ms * 8 / 1000)
+	return comfortNoiseSamples(ms * 8 / 1000), nil
+}
+
+func aiffToUlaw(aiff []byte) ([]byte, bool) {
+	var (
+		commFound bool
+		ssndFound bool
+		channels  uint16
+		bits      uint16
+		sampleRate float64
+		sound     []byte
+		ssndOff   uint32
+	)
+	off := 12
+	for off+8 <= len(aiff) {
+		id := string(aiff[off : off+4])
+		size := int(binary.BigEndian.Uint32(aiff[off+4 : off+8]))
+		off += 8
+		if size&1 != 0 {
+			size++
+		}
+		if off+size > len(aiff) {
+			break
+		}
+		chunk := aiff[off : off+size]
+		switch id {
+		case "COMM":
+			if len(chunk) < 18 {
+				return nil, false
+			}
+			channels = binary.BigEndian.Uint16(chunk[0:2])
+			bits = binary.BigEndian.Uint16(chunk[6:8])
+			sampleRate = readIEEE754Extended(chunk[8:18])
+			commFound = true
+		case "SSND":
+			if len(chunk) < 8 {
+				return nil, false
+			}
+			ssndOff = binary.BigEndian.Uint32(chunk[0:4])
+			_ = binary.BigEndian.Uint32(chunk[4:8]) // blockSize
+			if int(ssndOff)+8 <= len(chunk) {
+				sound = append([]byte(nil), chunk[8+ssndOff:]...)
+			}
+			ssndFound = true
+		}
+		off += size
+	}
+	if !commFound || !ssndFound || channels == 0 || bits != 16 || len(sound) < 2 {
+		return nil, false
+	}
+	rate := int(sampleRate)
+	if rate <= 0 {
+		rate = rtpClockRate
+	}
+	pcm := sound
+	if channels > 1 {
+		pcm = downmixPCM16BE(pcm, int(channels))
+	}
+	if rate != rtpClockRate {
+		pcm = resampleLinearPCM16BE(pcm, rate, rtpClockRate)
+	}
+	return pcm16BEToUlaw(pcm), true
+}
+
+func readIEEE754Extended(b []byte) float64 {
+	if len(b) < 10 {
+		return 0
+	}
+	exp := int(b[0]&0x7F)*256 + int(b[1]) - 16383 - 63
+	var mant uint64
+	for i := 2; i < 10; i++ {
+		mant = mant<<8 | uint64(b[i])
+	}
+	if mant == 0 {
+		return 0
+	}
+	f := float64(mant) / float64(uint64(1)<<63)
+	return f * float64(int64(1)<<exp)
+}
+
+func downmixPCM16BE(in []byte, ch int) []byte {
+	if ch <= 1 {
+		return in
+	}
+	samples := len(in) / (2 * ch)
+	out := make([]byte, samples*2)
+	for i := 0; i < samples; i++ {
+		var sum int32
+		for c := 0; c < ch; c++ {
+			off := (i*ch + c) * 2
+			sum += int32(int16(binary.BigEndian.Uint16(in[off : off+2])))
+		}
+		binary.BigEndian.PutUint16(out[i*2:i*2+2], uint16(int16(sum/int32(ch))))
+	}
+	return out
+}
+
+func resampleLinearPCM16BE(pcm []byte, fromRate, toRate int) []byte {
+	if fromRate == toRate || len(pcm) < 2 {
+		return pcm
+	}
+	le := make([]byte, len(pcm))
+	for i := 0; i+1 < len(pcm); i += 2 {
+		binary.LittleEndian.PutUint16(le[i:i+2], binary.BigEndian.Uint16(pcm[i:i+2]))
+	}
+	outLE := resampleLinear(le, fromRate, toRate)
+	out := make([]byte, len(outLE))
+	for i := 0; i+1 < len(outLE); i += 2 {
+		binary.BigEndian.PutUint16(out[i:i+2], binary.LittleEndian.Uint16(outLE[i:i+2]))
+	}
+	return out
+}
+
+func pcm16BEToUlaw(pcm []byte) []byte {
+	out := make([]byte, len(pcm)/2)
+	for i := 0; i < len(out); i++ {
+		s := int16(binary.BigEndian.Uint16(pcm[i*2 : i*2+2]))
+		out[i] = linearToUlaw(s)
+	}
+	return out
 }
 
 func wavToUlaw(wav []byte) ([]byte, bool) {

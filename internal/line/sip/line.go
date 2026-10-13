@@ -70,6 +70,9 @@ func New(cfg Config) (*Line, error) {
 	if cfg.Extension == "" {
 		cfg.Extension = "100"
 	}
+	if cfg.User == "" {
+		cfg.User = cfg.Extension
+	}
 	if cfg.Logf == nil {
 		cfg.Logf = func(format string, args ...any) { log.Printf(format, args...) }
 	}
@@ -273,7 +276,11 @@ func (l *Line) Play(ctx context.Context, audio []byte) error {
 	if rtp == nil {
 		return errors.New("sip line: no rtp session")
 	}
-	payload := audioToUlaw(audio)
+	payload, err := audioToUlaw(audio)
+	if err != nil {
+		l.cfg.Logf("sip line: play audio: %v", err)
+		return err
+	}
 	return rtp.play(ctx.Done(), payload)
 }
 
@@ -450,7 +457,7 @@ func (l *Line) verifyRegisterAuth(req *sip.Request, authHeader string) bool {
 	if err != nil {
 		return false
 	}
-	if cred.Username != l.cfg.User {
+	if cred.Username != l.cfg.User && cred.Username != l.cfg.Extension {
 		return false
 	}
 	l.mu.RLock()
@@ -464,7 +471,7 @@ func (l *Line) verifyRegisterAuth(req *sip.Request, authHeader string) bool {
 	opts := digest.Options{
 		Method:   req.Method.String(),
 		URI:      cred.URI,
-		Username: l.cfg.User,
+		Username: cred.Username,
 		Password: l.cfg.Password,
 	}
 	expected, err := digest.Digest(chal, opts)
