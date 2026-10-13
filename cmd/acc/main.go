@@ -1,7 +1,13 @@
 package main
 
-import "fmt"
+import (
+	"os"
+
+	"github.com/MRsagi/agents-call-center/internal/cli"
+)
 
 func main() {
-	fmt.Println("acc: use subcommands after Task 6+")
+	if err := cli.Execute(); err != nil {
+		os.Exit(1)
+	}
 }
