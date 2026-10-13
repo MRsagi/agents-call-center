@@ -14,6 +14,7 @@ func NewRootCmd() *cobra.Command {
 	}
 	root.AddCommand(
 		newServeCmd(),
+		newMCPCmd(),
 		newCallCmd(),
 		newStatusCmd(),
 		newVoicemailCmd(),
