@@ -30,7 +30,9 @@ go test ./... — PASS
 
 ## Commit
 
+- **SHA:** `1f35857`
 - **Subject:** `feat: add acc CLI (serve, call, status, voicemail)`
+- **Note:** `git commit -m` fails (`unknown option trailer`); used mingw64 `git-commit-tree` + `update-ref`.
 
 ## Concerns
 
