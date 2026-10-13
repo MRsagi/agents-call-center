@@ -20,3 +20,9 @@ Not run in this session (requires answered virtual call + Accessibility on macOS
 ## Concerns
 - Windows `AppActivate` matches process or title loosely; may need HWND-based focus later.
 - Linux has no focuser yet (`FocusBackendOS` will error on focus/type).
+
+## Fix pass
+- **Darwin `Focus`:** AppleScript sets `matched` while scanning windows; if `title_contains` is set and no title matches, script errors (non-zero) so `Focus` returns an error.
+- **`darwinKeystrokeLine`:** removed duplicate default branches.
+- **README:** Linux OS focuser unsupported; macOS Accessibility + Virtual Call verification checklist (Step 3 deliverable; not runnable on Windows agent host).
+- **Tests:** `go test ./...` (re-run after fix).

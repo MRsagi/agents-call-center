@@ -33,12 +33,15 @@ func (d *darwinFocuser) Focus(ctx context.Context, target domain.FocusTarget) er
 tell application "System Events"
 	tell process %s
 		set frontmost to true
+		set matched to false
 		repeat with w in windows
 			if (name of w as text) contains %s then
 				perform action "AXRaise" of w
+				set matched to true
 				exit repeat
 			end if
 		end repeat
+		if not matched then error "focus: no window title contains substring" number 1
 	end tell
 end tell`, proc, titleLit)
 	}
@@ -73,9 +76,6 @@ func darwinKeystrokeLine(key string) string {
 	case "Space":
 		return "keystroke space"
 	default:
-		if len(key) == 1 {
-			return fmt.Sprintf("keystroke %s", appleScriptString(key))
-		}
 		return fmt.Sprintf("keystroke %s", appleScriptString(key))
 	}
 }
