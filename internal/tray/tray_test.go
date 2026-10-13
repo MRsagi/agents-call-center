@@ -2,6 +2,18 @@ package tray
 
 import "testing"
 
+func TestTrayIconEmbedded(t *testing.T) {
+	// icon.ico is only linked into the systray-enabled build; this file always
+	// compiles. When the enabled file is in the same package build, trayIcon
+	// must be a complete ICO (header + image), not the old truncated stub.
+	if len(trayIcon) < 100 {
+		t.Fatalf("trayIcon too small (%d bytes); need a valid Windows ICO", len(trayIcon))
+	}
+	if trayIcon[0] != 0 || trayIcon[1] != 0 || trayIcon[2] != 1 || trayIcon[3] != 0 {
+		t.Fatalf("trayIcon missing ICO signature, got %v", trayIcon[:4])
+	}
+}
+
 func TestFormatTooltip(t *testing.T) {
 	tests := []struct {
 		name string
