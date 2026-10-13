@@ -13,6 +13,7 @@ import (
 	"github.com/MRsagi/agents-call-center/internal/api"
 	"github.com/MRsagi/agents-call-center/internal/app"
 	"github.com/MRsagi/agents-call-center/internal/config"
+	"github.com/MRsagi/agents-call-center/internal/tray"
 	"github.com/spf13/cobra"
 )
 
@@ -33,13 +34,18 @@ func runServe(ctx context.Context) error {
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	runCtx, runCancel := context.WithCancel(ctx)
+	defer runCancel()
+
 	cfg := config.Default()
 	a, err := app.New(cfg)
 	if err != nil {
 		return err
 	}
 
-	if err := a.Start(ctx); err != nil {
+	go tray.Run(runCtx, &serveTrayProvider{app: a, cancel: runCancel})
+
+	if err := a.Start(runCtx); err != nil {
 		return err
 	}
 	defer a.Stop()
@@ -60,7 +66,7 @@ func runServe(ctx context.Context) error {
 	fmt.Fprintf(os.Stderr, "acc: listening on http://%s\n", cfg.HTTPBind)
 
 	select {
-	case <-ctx.Done():
+	case <-runCtx.Done():
 	case err := <-errCh:
 		if err != nil {
 			return err

@@ -14,6 +14,7 @@ import (
 	"github.com/MRsagi/agents-call-center/internal/line"
 	"github.com/MRsagi/agents-call-center/internal/runner"
 	"github.com/MRsagi/agents-call-center/internal/synth"
+	"github.com/MRsagi/agents-call-center/internal/tray"
 )
 
 type App struct {
@@ -160,4 +161,20 @@ func (a *App) LineUp() bool {
 		return rl.Ready()
 	}
 	return true
+}
+
+// StatusSnapshot implements tray.StatusProvider for the status tray.
+func (a *App) StatusSnapshot() tray.StatusSnapshot {
+	vmCount := 0
+	if a.Voicemail != nil {
+		if n, err := a.Voicemail.Count(); err == nil {
+			vmCount = n
+		}
+	}
+	return tray.StatusSnapshot{
+		QueueDepth:      a.Queue.Len(),
+		VoicemailCount:  vmCount,
+		LineUp:          a.LineUp(),
+		LastCallSummary: a.Queue.LastFinishedSummary(),
+	}
 }

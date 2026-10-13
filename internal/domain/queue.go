@@ -1,6 +1,9 @@
 package domain
 
-import "sync"
+import (
+	"fmt"
+	"sync"
+)
 
 type Queue struct {
 	mu    sync.Mutex
@@ -56,4 +59,28 @@ func (q *Queue) Snapshot() []*Call {
 		out = append(out, q.byID[id])
 	}
 	return out
+}
+
+// LastFinishedSummary returns a short label for the most recently finished call, if any.
+func (q *Queue) LastFinishedSummary() string {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	var best *Call
+	for _, c := range q.byID {
+		switch c.Status {
+		case StatusQueued, StatusRinging, StatusInProgress:
+			continue
+		}
+		if best == nil || c.CreatedAt.After(best.CreatedAt) {
+			best = c
+		}
+	}
+	if best == nil {
+		return ""
+	}
+	id := best.ID
+	if len(id) > 8 {
+		id = id[:8]
+	}
+	return fmt.Sprintf("%s · %s", id, best.Status)
 }
