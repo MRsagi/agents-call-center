@@ -58,8 +58,13 @@ func (r *Runner) Start(ctx context.Context) {
 		default:
 		}
 
+		if !r.tryAcquireProcessing() {
+			time.Sleep(10 * time.Millisecond)
+			continue
+		}
 		c, ok := r.deps.Queue.Dequeue()
 		if !ok {
+			r.clearProcessing()
 			time.Sleep(10 * time.Millisecond)
 			continue
 		}
@@ -67,7 +72,7 @@ func (r *Runner) Start(ctx context.Context) {
 	}
 }
 
-func (r *Runner) trySetIdle() bool {
+func (r *Runner) tryAcquireProcessing() bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if r.processing {
@@ -77,26 +82,33 @@ func (r *Runner) trySetIdle() bool {
 	return true
 }
 
-func (r *Runner) clearIdle() {
+func (r *Runner) trySetIdle() bool {
+	return r.tryAcquireProcessing()
+}
+
+func (r *Runner) clearProcessing() {
 	r.mu.Lock()
 	r.processing = false
 	r.mu.Unlock()
 }
 
-func (r *Runner) setProcessing(on bool) {
-	r.mu.Lock()
-	r.processing = on
-	r.mu.Unlock()
+func (r *Runner) clearIdle() {
+	r.clearProcessing()
 }
 
 func (r *Runner) processCall(ctx context.Context, c *domain.Call) {
-	r.setProcessing(true)
-	defer r.setProcessing(false)
+	defer r.clearProcessing()
 
 	c.Status = domain.StatusRinging
 
 	audio, err := r.deps.Synth.Synthesize(ctx, c.Prompt)
 	if err != nil {
+		c.Status = domain.StatusFailed
+		c.Error = err.Error()
+		return
+	}
+
+	if err := r.waitLineReady(ctx); err != nil {
 		c.Status = domain.StatusFailed
 		c.Error = err.Error()
 		return
@@ -112,8 +124,24 @@ func (r *Runner) processCall(ctx context.Context, c *domain.Call) {
 	}
 
 	if err := r.deps.Line.WaitAnswer(ringCtx); err != nil {
-		_ = r.deps.Voicemail.Leave(c)
-		c.Status = domain.StatusVoicemail
+		if errors.Is(err, context.DeadlineExceeded) {
+			_ = r.deps.Voicemail.Leave(c)
+			c.Status = domain.StatusVoicemail
+			_ = r.deps.Line.Hangup(context.Background())
+			return
+		}
+		if errors.Is(err, context.Canceled) || ctx.Err() != nil {
+			c.Status = domain.StatusFailed
+			if ctx.Err() != nil {
+				c.Error = ctx.Err().Error()
+			} else {
+				c.Error = err.Error()
+			}
+			_ = r.deps.Line.Hangup(context.Background())
+			return
+		}
+		c.Status = domain.StatusFailed
+		c.Error = err.Error()
 		_ = r.deps.Line.Hangup(context.Background())
 		return
 	}
@@ -163,14 +191,42 @@ func (r *Runner) handleIdleDigits(ctx context.Context, digits string) {
 		if err != nil {
 			return
 		}
-		_ = r.deps.Focus.Focus(ctx, entry.FocusTarget)
 		_ = r.deps.Line.Play(ctx, audio)
 		collected, err := r.deps.Line.CollectDigits(ctx, entry.MaxDigits)
 		if err != nil {
 			return
 		}
+		_ = r.deps.Focus.Focus(ctx, entry.FocusTarget)
 		_ = r.deps.Focus.Type(ctx, focus.KeysForDigits(collected))
 		_ = r.deps.Voicemail.MarkHeard(entry.CallID)
 	case domain.IdleError, domain.IdleNone:
 	}
+}
+
+func (r *Runner) waitLineReady(ctx context.Context) error {
+	wait := r.deps.LineRecoverWait
+	if wait <= 0 {
+		return nil
+	}
+	rl, ok := r.deps.Line.(line.ReadyLine)
+	if !ok {
+		// deferred until SIP Line exposes readiness
+		return nil
+	}
+	if rl.Ready() {
+		return nil
+	}
+	deadline := time.Now().Add(wait)
+	for time.Now().Before(deadline) {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+		if rl.Ready() {
+			return nil
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	return errors.New("line not ready")
 }

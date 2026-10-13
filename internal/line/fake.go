@@ -20,6 +20,10 @@ func NewFake(script FakeScript) *Fake {
 	return &Fake{script: script}
 }
 
+func (f *Fake) Ready() bool {
+	return true
+}
+
 func (f *Fake) Ring(_ context.Context) error {
 	return nil
 }
