@@ -148,9 +148,8 @@ func (r *Runner) processCall(ctx context.Context, c *domain.Call) {
 
 	c.Status = domain.StatusInProgress
 	delivery := domain.DeliveryOK
-	if err := r.deps.Focus.Focus(ctx, c.FocusTarget); err != nil {
-		delivery = domain.DeliveryFocusMissed
-	}
+	// Best-effort raise target when the call starts (may lose focus during prompt/DTMF).
+	_ = r.deps.Focus.Focus(ctx, c.FocusTarget)
 
 	if err := r.deps.Line.Play(ctx, audio); err != nil {
 		c.Status = domain.StatusFailed
@@ -159,7 +158,9 @@ func (r *Runner) processCall(ctx context.Context, c *domain.Call) {
 		return
 	}
 
-	digits, err := r.deps.Line.CollectDigits(ctx, c.MaxDigits)
+	digitCtx, digitCancel := context.WithTimeout(ctx, 60*time.Second)
+	defer digitCancel()
+	digits, err := r.deps.Line.CollectDigits(digitCtx, c.MaxDigits)
 	if err != nil {
 		c.Status = domain.StatusFailed
 		c.Error = err.Error()
@@ -168,7 +169,11 @@ func (r *Runner) processCall(ctx context.Context, c *domain.Call) {
 	}
 	c.Digits = digits
 
-	if err := r.deps.Focus.Type(ctx, focus.KeysForDigits(digits)); err != nil {
+	// Re-focus immediately before typing so keystrokes do not land in whatever
+	// window is foreground after the phone interaction (e.g. the terminal).
+	if err := r.deps.Focus.Focus(ctx, c.FocusTarget); err != nil {
+		delivery = domain.DeliveryFocusMissed
+	} else if err := r.deps.Focus.Type(ctx, focus.KeysForDigits(digits)); err != nil {
 		delivery = domain.DeliveryFocusMissed
 	}
 

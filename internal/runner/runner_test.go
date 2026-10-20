@@ -126,4 +126,7 @@ func TestRunner_FocusFailStillCompletes(t *testing.T) {
 	if got.Digits != "2" {
 		t.Fatalf("digits=%q", got.Digits)
 	}
+	if len(foc.Typed) != 0 {
+		t.Fatalf("typed=%v want none when focus fails", foc.Typed)
+	}
 }

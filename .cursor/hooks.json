@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .cursor/hooks/session-context.ps1"
+      }
+    ],
+    "beforeSubmitPrompt": [
+      {
+        "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .cursor/hooks/session-context.ps1",
+        "matcher": "UserPromptSubmit"
+      }
+    ],
+    "beforeShellExecution": [
+      {
+        "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .cursor/hooks/ensure-focus-app.ps1",
+        "matcher": "acc(\\.exe)?\\s+call"
+      },
+      {
+        "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .cursor/hooks/notify-phone.ps1 -Mode shell",
+        "matcher": "git\\s+push|Remove-Item.*-Recurse|rm\\s+-rf|drop\\s+table|format\\s+|Reset-Computer",
+        "failClosed": false
+      }
+    ],
+    "afterAgentResponse": [
+      {
+        "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .cursor/hooks/notify-phone.ps1 -Mode response",
+        "matcher": "AgentResponse"
+      }
+    ],
+    "stop": [
+      {
+        "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .cursor/hooks/notify-phone.ps1 -Mode stop",
+        "matcher": "Stop",
+        "loop_limit": 5
+      }
+    ]
+  }
+}

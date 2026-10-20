@@ -11,8 +11,10 @@ import (
 )
 
 const (
-	rtpClockRate = 8000
-	rtpPTPCMU    = 0
+	rtpClockRate   = 8000
+	rtpPTPCMU      = 0
+	rtpPtimeMS     = 30 // match PAP2T default "RTP Packet Size" 0.030
+	rtpFrameSamples = rtpClockRate * rtpPtimeMS / 1000
 )
 
 type rtpEndpoint struct {
@@ -26,25 +28,38 @@ func parseAudioSDP(body []byte) (rtpEndpoint, error) {
 	}
 	lines := splitLines(string(body))
 	var audioPort int
-	var connIP string
+	var sessionIP, mediaIP string
+	inAudio := false
 	for _, ln := range lines {
-		if len(ln) >= 2 && ln[0] == 'm' && ln[1] == '=' {
-			// m=audio 49170 RTP/AVP 0
+		switch {
+		case strings.HasPrefix(ln, "c=IN IP4 "):
+			ip := strings.TrimSpace(strings.TrimPrefix(ln, "c=IN IP4 "))
+			if i := strings.IndexAny(ip, " \t/"); i >= 0 {
+				ip = ip[:i]
+			}
+			if inAudio {
+				mediaIP = ip
+			} else {
+				sessionIP = ip
+			}
+		case strings.HasPrefix(ln, "m="):
+			inAudio = false
 			var media string
-			fmt.Sscanf(ln, "m=%s %d", &media, &audioPort)
-			if media != "audio" {
-				continue
+			var port int
+			if _, err := fmt.Sscanf(ln, "m=%s %d", &media, &port); err == nil && media == "audio" {
+				inAudio = true
+				audioPort = port
 			}
 		}
-		if len(ln) >= 2 && ln[0] == 'c' && ln[1] == '=' {
-			var netw string
-			fmt.Sscanf(ln, "c=%s IP4 %s", &netw, &connIP)
-		}
+	}
+	connIP := mediaIP
+	if connIP == "" {
+		connIP = sessionIP
 	}
 	if audioPort == 0 || connIP == "" {
-		return ep, fmt.Errorf("SDP missing audio connection")
+		return ep, fmt.Errorf("SDP missing audio connection (port=%d ip=%q)", audioPort, connIP)
 	}
-	addr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", connIP, audioPort))
+	addr, err := net.ResolveUDPAddr("udp", net.JoinHostPort(connIP, fmt.Sprintf("%d", audioPort)))
 	if err != nil {
 		return ep, err
 	}
@@ -82,8 +97,9 @@ func buildOfferSDP(publicHost string, rtpPort int) string {
 			"a=rtpmap:0 PCMU/8000\r\n"+
 			"a=rtpmap:101 telephone-event/8000\r\n"+
 			"a=fmtp:101 0-15\r\n"+
+			"a=ptime:%d\r\n"+
 			"a=sendrecv\r\n",
-		publicHost, publicHost, rtpPort,
+		publicHost, publicHost, rtpPort, rtpPtimeMS,
 	)
 }
 
@@ -401,12 +417,18 @@ type rtpSender struct {
 	ts     uint32
 	ssrc   uint32
 	mu     sync.Mutex
+	marked bool // true after first talkspurt marker bit was sent
 
-	rxCancel context.CancelFunc
+	rxCancel   context.CancelFunc
+	keepCancel context.CancelFunc
 }
 
 func newRTPSender(bindHost string) (*rtpSender, error) {
-	laddr, err := net.ResolveUDPAddr("udp", bindHost+":0")
+	host := bindHost
+	if host == "" || host == "0.0.0.0" {
+		host = ""
+	}
+	laddr, err := net.ResolveUDPAddr("udp", net.JoinHostPort(host, "0"))
 	if err != nil {
 		return nil, err
 	}
@@ -416,6 +438,7 @@ func newRTPSender(bindHost string) (*rtpSender, error) {
 	}
 	return &rtpSender{
 		conn: conn,
+		seq:  uint16(time.Now().UnixNano()),
 		ssrc: uint32(time.Now().UnixNano()),
 	}, nil
 }
@@ -433,12 +456,23 @@ func (r *rtpSender) setRemote(ep rtpEndpoint) {
 	r.mu.Unlock()
 }
 
+func (r *rtpSender) remoteAddr() string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.remote == nil {
+		return "<nil>"
+	}
+	return r.remote.String()
+}
+
 func (r *rtpSender) play(ctx <-chan struct{}, payload []byte) error {
 	if r.conn == nil || r.remote == nil {
 		return fmt.Errorf("rtp not configured")
 	}
-	const frameSamples = 160 // 20 ms @ 8 kHz
-	ticker := time.NewTicker(20 * time.Millisecond)
+	r.stopKeepalive()
+	defer r.startKeepalive()
+
+	ticker := time.NewTicker(time.Duration(rtpPtimeMS) * time.Millisecond)
 	defer ticker.Stop()
 	pos := 0
 	for {
@@ -446,21 +480,19 @@ func (r *rtpSender) play(ctx <-chan struct{}, payload []byte) error {
 		case <-ctx:
 			return nil
 		case <-ticker.C:
-			var frame []byte
-			if pos < len(payload) {
-				end := pos + frameSamples
-				if end > len(payload) {
-					end = len(payload)
-				}
-				frame = payload[pos:end]
-				pos = end
-			} else {
-				frame = comfortNoiseSamples(frameSamples)
+			if pos >= len(payload) {
+				return nil
 			}
-			if len(frame) < frameSamples {
-				pad := make([]byte, frameSamples)
+			end := pos + rtpFrameSamples
+			if end > len(payload) {
+				end = len(payload)
+			}
+			frame := payload[pos:end]
+			pos = end
+			if len(frame) < rtpFrameSamples {
+				pad := make([]byte, rtpFrameSamples)
 				copy(pad, frame)
-				for i := len(frame); i < frameSamples; i++ {
+				for i := len(frame); i < rtpFrameSamples; i++ {
 					pad[i] = 0xFF
 				}
 				frame = pad
@@ -472,33 +504,92 @@ func (r *rtpSender) play(ctx <-chan struct{}, payload []byte) error {
 	}
 }
 
+func (r *rtpSender) stopKeepalive() {
+	r.mu.Lock()
+	cancel := r.keepCancel
+	r.keepCancel = nil
+	r.mu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
+}
+
+// startKeepalive sends μ-law silence so ATAs with media timers do not BYE
+// while we wait for answer handling, DTMF, etc.
+func (r *rtpSender) startKeepalive() {
+	if r == nil {
+		return
+	}
+	r.stopKeepalive()
+	r.mu.Lock()
+	if r.conn == nil || r.remote == nil {
+		r.mu.Unlock()
+		return
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	r.keepCancel = cancel
+	r.mu.Unlock()
+
+	go func() {
+		ticker := time.NewTicker(time.Duration(rtpPtimeMS) * time.Millisecond)
+		defer ticker.Stop()
+		silence := comfortNoiseSamples(rtpFrameSamples)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if err := r.sendFrame(silence); err != nil {
+					return
+				}
+			}
+		}
+	}()
+}
+
 func (r *rtpSender) sendFrame(payload []byte) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if r.remote == nil {
+	if r.remote == nil || r.conn == nil {
 		return fmt.Errorf("no rtp remote")
 	}
 	pkt := make([]byte, 12+len(payload))
 	pkt[0] = 0x80
-	pkt[1] = rtpPTPCMU
+	pt := byte(rtpPTPCMU)
+	if !r.marked {
+		pt |= 0x80 // marker bit: start of talkspurt (RFC 3550)
+		r.marked = true
+	}
+	pkt[1] = pt
 	binary.BigEndian.PutUint16(pkt[2:4], r.seq)
 	r.seq++
 	binary.BigEndian.PutUint32(pkt[4:8], r.ts)
 	r.ts += uint32(len(payload))
 	binary.BigEndian.PutUint32(pkt[8:12], r.ssrc)
 	copy(pkt[12:], payload)
-	_, err := r.conn.WriteToUDP(pkt, r.remote)
-	return err
+	n, err := r.conn.WriteToUDP(pkt, r.remote)
+	if err != nil {
+		return err
+	}
+	if n != len(pkt) {
+		return fmt.Errorf("rtp short write %d/%d", n, len(pkt))
+	}
+	return nil
 }
 
 func (r *rtpSender) close() {
+	r.stopKeepalive()
+	r.mu.Lock()
 	if r.rxCancel != nil {
 		r.rxCancel()
 		r.rxCancel = nil
 	}
 	if r.conn != nil {
 		_ = r.conn.Close()
+		r.conn = nil
 	}
+	r.remote = nil
+	r.mu.Unlock()
 }
 
 // startRXPCM tees inbound RTP μ-law payloads to sink as 8 kHz mono PCM16 LE.

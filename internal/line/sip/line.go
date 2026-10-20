@@ -233,17 +233,16 @@ func (l *Line) Ring(ctx context.Context) error {
 	l.rtp = rtp
 	sdp := buildOfferSDP(l.publicHost, rtp.localPort())
 
-	recipient := contact
-	invite, err := l.dialog.Invite(ctx, recipient, []byte(sdp))
-	if err != nil {
-		rtp.close()
-		l.rtp = nil
-		return fmt.Errorf("sip invite: %w", err)
-	}
+	// WriteInvite builds the dialog and sends INVITE once (DialogUA.Invite
+	// already calls session.Invite). Destination must be set before send.
+	req := sip.NewRequest(sip.INVITE, contact)
+	req.AppendHeader(sip.NewHeader("Content-Type", "application/sdp"))
+	req.SetBody([]byte(sdp))
 	if dest != "" {
-		invite.InviteRequest.SetDestination(dest)
+		req.SetDestination(dest)
 	}
-	if err := invite.Invite(ctx); err != nil {
+	invite, err := l.dialog.WriteInvite(ctx, req)
+	if err != nil {
 		rtp.close()
 		l.rtp = nil
 		return fmt.Errorf("sip invite send: %w", err)
@@ -272,10 +271,13 @@ func (l *Line) WaitAnswer(ctx context.Context) error {
 	}
 
 	if sess.InviteResponse != nil && l.rtp != nil {
-		ep, err := parseAudioSDP(sess.InviteResponse.Body())
+		body := sess.InviteResponse.Body()
+		l.cfg.Logf("sip line: answer SDP: %q", truncateForLog(body, 500))
+		ep, err := parseAudioSDP(body)
 		if err != nil {
-			l.cfg.Logf("sip line: sdp parse: %v (using comfort noise only)", err)
+			l.cfg.Logf("sip line: sdp parse: %v", err)
 		} else {
+			l.cfg.Logf("sip line: rtp remote %s (local port %d)", ep.addr, l.rtp.localPort())
 			l.rtp.setRemote(ep)
 		}
 	}
@@ -285,6 +287,10 @@ func (l *Line) WaitAnswer(ctx context.Context) error {
 	sink := l.rxPCM
 	rtp := l.rtp
 	l.callMu.Unlock()
+	if rtp != nil {
+		// Keepalive immediately so Focus/TTS setup cannot starve the ATA media timer.
+		rtp.startKeepalive()
+	}
 	if sink != nil && rtp != nil {
 		rtp.startRXPCM(sink)
 	}
@@ -303,6 +309,10 @@ func (l *Line) Play(ctx context.Context, audio []byte) error {
 		l.cfg.Logf("sip line: play audio: %v", err)
 		return err
 	}
+	l.cfg.Logf("sip line: playing %d μ-law samples (~%.1fs) -> %v", len(payload), float64(len(payload))/float64(rtpClockRate), rtp.remoteAddr())
+	// Brief silence lets some ATAs open the RX path before speech.
+	pre := comfortNoiseSamples(rtpClockRate / 5) // 200 ms
+	payload = append(pre, payload...)
 	return rtp.play(ctx.Done(), payload)
 }
 
@@ -561,6 +571,13 @@ func (l *Line) onBye(req *sip.Request, tx sip.ServerTransaction) {
 	}
 	res := sip.NewResponseFromRequest(req, 481, "Call/Transaction Does Not Exist", nil)
 	_ = tx.Respond(res)
+}
+
+func truncateForLog(b []byte, n int) string {
+	if len(b) <= n {
+		return string(b)
+	}
+	return string(b[:n]) + "…"
 }
 
 var (

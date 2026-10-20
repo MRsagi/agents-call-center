@@ -1,0 +1,104 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            goos: linux
+            goarch: amd64
+            cgo: "0"
+            asset: acc-linux-amd64
+          - os: windows-latest
+            goos: windows
+            goarch: amd64
+            cgo: "0"
+            asset: acc-windows-amd64.exe
+          - os: macos-latest
+            goos: darwin
+            goarch: amd64
+            cgo: "1"
+            asset: acc-darwin-amd64
+          - os: macos-latest
+            goos: darwin
+            goarch: arm64
+            cgo: "1"
+            asset: acc-darwin-arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Build and archive
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: ${{ matrix.cgo }}
+        shell: bash
+        run: |
+          out="${{ matrix.asset }}"
+          go build -ldflags="-s -w" -o "$out" ./cmd/acc
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            powershell -Command "Compress-Archive -Path '$out' -DestinationPath '${out}.zip'"
+            echo "ARCHIVE=${out}.zip" >> "$GITHUB_ENV"
+          else
+            tar -czf "${out}.tar.gz" "$out"
+            echo "ARCHIVE=${out}.tar.gz" >> "$GITHUB_ENV"
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: ${{ env.ARCHIVE }}
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: List artifacts
+        run: find dist -type f | sort
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          generate_release_notes: true
+          files: |
+            dist/*
+          body: |
+            ## Agents Call Center ${{ github.ref_name }}
+
+            Download the binary for your OS, then:
+
+            ```bash
+            # Windows (PowerShell)
+            $env:ACC_LINE_BACKEND = "sip"
+            $env:ACC_SIP_PUBLIC_HOST = "<your-lan-ip>"
+            .\acc-windows-amd64.exe serve
+
+            # macOS / Linux
+            chmod +x ./acc-darwin-arm64   # or amd64 / linux-amd64
+            export ACC_LINE_BACKEND=sip
+            export ACC_SIP_PUBLIC_HOST=<your-lan-ip>
+            ./acc-darwin-arm64 serve
+            ```
+
+            See README and `docs/pap2t.md` for PAP2T setup.
+            Cursor phone-notify hooks live under `.cursor/hooks/` (Windows PowerShell today).
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
