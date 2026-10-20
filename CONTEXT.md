@@ -57,8 +57,12 @@ A non-audio Line that records prompts and returns scripted Replies — for autom
 _Avoid_: Mock (as the domain name), stub Line
 
 **Status Tray**:
-A small always-available UI showing Line health, Queue depth, and the latest Call — not a full console or CRM.
-_Avoid_: Dashboard, admin UI, control panel
+A small always-available UI showing Line health, Queue depth, and the latest Call, plus Open Console and Quit — not a full CRM.
+_Avoid_: Dashboard, admin UI, control panel (use Console for those Human-facing pages)
+
+**Console**:
+The local web UI for the Human: live Call text, Voicemail list, and configuration. Opened from the Status Tray into the default browser; served by the Call Center on localhost.
+_Avoid_: Dashboard, admin UI, control panel, frontend (when meaning Agents’ Surfaces)
 
 **Prompt**:
 The text an Agent wants the Human to hear on a Call, rendered to audio before or during ringing/answer.
@@ -69,13 +73,17 @@ The component that turns a Prompt into audio for the Line. Default is OS speech;
 _Avoid_: TTS service (as the domain name), voice API
 
 **Voicemail**:
-A Call the Human did not answer within the ring timeout. Unheard Voicemails persist (JSONL); once heard, they are deleted. Ordinary completed Call history stays in-memory only. Access is by dialing a Feature Code on an idle Line — not automatic on pickup.
+A Call the Human did not answer within the ring timeout. Unheard Voicemails persist (JSONL); once heard or deleted from the Console, they are removed. Ordinary completed Call history stays in-memory only. Audio access is by dialing a Feature Code on an idle Line; the Console lists Prompt text without playing audio.
 _Avoid_: Missed call log, inbox, notification history
 
 **Feature Code**:
-A digit sequence the Human dials on an idle Line to invoke a Call Center action (e.g. play Voicemail, focus an Agent chat, start dictation).
+A digit sequence the Human dials on an idle Line to invoke a Call Center action (e.g. play Voicemail, start Idle Dictation).
 _Avoid_: Star code (as the only term), DTMF command, shortcode
 
+**Idle Dictation**:
+A Human-started session on an idle Line via Feature Code: Phone Mic carries handset audio, and a configured hotkey toggles dictation in the already-focused app. Ends on hang-up; does not steal window focus; does not yield to a ringing Agent Call.
+_Avoid_: Auto-dictate on pickup, speech Call Mode, Phone Mic alone
+
 **Dialplan**:
-The mapping of Feature Codes (and Call progress behavior) on the Line — what ringing, idle dialing, and in-Call digits mean. v1: idle pickup is dial tone only; a Voicemail Feature Code plays unheard mail. Later: pickup focuses last Agent; `N*` focuses chat N and starts dictation.
+The mapping of Feature Codes (and Call progress behavior) on the Line — what ringing, idle dialing, and in-Call digits mean. Idle pickup is dial tone only; Voicemail and Idle Dictation Feature Codes apply on an idle Line; in-Call digits are the Call’s Reply.
 _Avoid_: IVR menu tree, router
