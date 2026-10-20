@@ -2,9 +2,10 @@
 # Modes: stop | response | shell  (pass as: -Mode stop)
 #
 # Flow:
-# - afterAgentResponse: stash last assistant text; mark if it looks like a multi-option decision
-# - stop (completed): call and speak a summary; if decision pending, wait for DTMF and
-#   return followup_message so Cursor continues with that choice
+# - afterAgentResponse: stash the assistant text (needed for the spoken reply)
+# - stop (completed): enqueue a call that speaks the response (does not block the agent);
+#   if the human presses a digit, acc types it into Cursor; hangup with no digit = done
+# - decisions: wait for DTMF and return followup_message so Cursor continues
 # - shell (risky): ask in Cursor UI + ring
 $ErrorActionPreference = 'Continue'
 $Mode = 'response'
@@ -20,7 +21,8 @@ if (-not (Test-Path $StateDir)) { New-Item -ItemType Directory -Path $StateDir |
 $LastResponsePath = Join-Path $StateDir 'last-response.txt'
 $PendingPath = Join-Path $StateDir 'pending-decision.json'
 $RingStampPath = Join-Path $StateDir 'last-ring.txt'
-$FocusApp = '__PhoneOnly__' # intentional miss so digits are not typed into a random window
+# Digits pressed on the phone are typed into Cursor (hangup with none = no typing).
+$FocusApp = 'Cursor'
 
 $raw = [Console]::In.ReadToEnd()
 if ([string]::IsNullOrWhiteSpace($raw)) { $raw = ($input | Out-String) }
@@ -103,11 +105,11 @@ function Build-DecisionPrompt([string]$text) {
 }
 
 function Build-DonePrompt([string]$text) {
-  $summary = Truncate-Speak $text 220
+  $summary = Truncate-Speak $text 300
   if ([string]::IsNullOrWhiteSpace($summary)) {
-    return 'Agent finished. Press 1 to acknowledge.'
+    return 'Agent finished with no text.'
   }
-  return Truncate-Speak ("Agent finished. Here is what I did. $summary Press 1 to acknowledge.") 320
+  return $summary
 }
 
 function Place-Call([string]$prompt, [int]$digits) {
@@ -156,6 +158,7 @@ function Load-LastResponse {
 
 switch ($Mode) {
   'response' {
+    # Stash only — the call happens on stop when the agent turn is finished.
     $text = [string]$evt.text
     Save-LastResponse $text
     if (Test-IsDecision $text) {
@@ -164,8 +167,7 @@ switch ($Mode) {
         options = (Get-OptionCount $text)
         savedAt = (Get-Date).ToString('o')
       } | ConvertTo-Json | Set-Content -Path $PendingPath -Encoding utf8
-    } elseif (Test-Path $PendingPath) {
-      # Non-decision reply clears a stale pending flag from an earlier turn.
+    } else {
       Remove-Item $PendingPath -Force -ErrorAction SilentlyContinue
     }
     Write-Json @{}
@@ -186,7 +188,6 @@ switch ($Mode) {
     }
 
     if ($pending -and $pending.kind -eq 'decision') {
-      # One keypress selects the option number (1..9), regardless of how many options exist.
       $prompt = Build-DecisionPrompt $last
       $id = Place-Call $prompt 1
       Remove-Item $PendingPath -Force -ErrorAction SilentlyContinue
@@ -201,28 +202,31 @@ switch ($Mode) {
       exit 0
     }
 
-    # Normal completion: narrate what was done; 1 acknowledges.
+    # Agent finished: speak the response; do not block waiting for an ack.
+    # Digit (if any) is typed by acc into Cursor; hangup with no digit ends the call.
     $prompt = Build-DonePrompt $last
-    $id = Place-Call $prompt 1
-    $null = Wait-CallDigits $id 90
+    $null = Place-Call $prompt 1
     Remove-Item $PendingPath -Force -ErrorAction SilentlyContinue
     Write-Json @{}
     exit 0
   }
 
   'shell' {
-    $cmd = [string]$evt.command
-    $id = Place-Call 'Shell command needs your approval in Cursor. Press 1 when ready.' 1
-    $rang = [bool]$id
+    # Keep agent_message short — embedding the full shell command can break JSON parsing.
+    $rang = $false
+    try {
+      $id = Place-Call 'Shell command needs your approval in Cursor.' 1
+      $rang = [bool]$id
+    } catch {}
     $msg = if ($rang) {
-      'Review this shell command. Your phone should ring with a short explanation prompt.'
+      'Review this shell command. Your phone should ring.'
     } else {
       'Review this shell command. (Phone notify skipped — is acc serve up with line up?)'
     }
     Write-Json @{
       permission    = 'ask'
       user_message  = $msg
-      agent_message = "Hook requested approval for shell: $cmd"
+      agent_message = 'Hook requested approval for a matched shell command.'
     }
     exit 0
   }

@@ -178,9 +178,9 @@ func (v *Virtual) CollectDigits(ctx context.Context, max int) (string, error) {
 		v.mu.Unlock()
 		select {
 		case <-ctx.Done():
-			return trimDigits(buf.String(), max), ctx.Err()
+			return trimDigits(buf.String(), max), nil
 		case <-hangupCh:
-			return trimDigits(buf.String(), max), errors.New("call hung up")
+			return trimDigits(buf.String(), max), nil
 		case d := <-digitCh:
 			buf.WriteString(d)
 			if buf.Len() >= max {

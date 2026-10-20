@@ -19,7 +19,7 @@
       },
       {
         "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .cursor/hooks/notify-phone.ps1 -Mode shell",
-        "matcher": "git\\s+push|Remove-Item.*-Recurse|rm\\s+-rf|drop\\s+table|format\\s+|Reset-Computer",
+        "matcher": "Remove-Item.*-Recurse|rm\\s+-rf|drop\\s+table|format\\s+|Reset-Computer",
         "failClosed": false
       }
     ],

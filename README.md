@@ -94,9 +94,14 @@ If a call is not answered within the ring timeout (~90s), the prompt is stored a
 
 **v1 idle `*1` on SIP:** DTMF must use **SIP INFO** (see [docs/pap2t.md](docs/pap2t.md)). Digits are aggregated with a ~1.5s inter-digit timeout so `*` and `1` sent one-at-a-time still match. Picking up the handset without an active call may not deliver INFO on some ATAs — use **`acc voicemail`** as a reliable fallback.
 
-## Phone Mic (macOS + BlackHole)
+## Phone Mic (virtual mic)
 
-Route inbound SIP handset audio into a virtual mic for system dictation (BlackHole + sox). See [docs/phone-mic.md](docs/phone-mic.md).
+Route inbound SIP handset audio into a virtual mic for system dictation:
+
+- **Windows:** VB-Cable + sox → select **CABLE Output** as mic
+- **macOS:** BlackHole + sox → select **BlackHole 2ch** as mic
+
+See [docs/phone-mic.md](docs/phone-mic.md).
 
 ## Focus target (OS)
 

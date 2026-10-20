@@ -25,7 +25,7 @@ func TestFake_RecordsPCM(t *testing.T) {
 	}
 }
 
-func TestNew_NonDarwinStub(t *testing.T) {
+func TestNew_StartsAndAcceptsPCM(t *testing.T) {
 	pm, err := phonemic.New(phonemic.Config{})
 	if err != nil {
 		t.Fatal(err)

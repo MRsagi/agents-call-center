@@ -169,12 +169,15 @@ func (r *Runner) processCall(ctx context.Context, c *domain.Call) {
 	}
 	c.Digits = digits
 
-	// Re-focus immediately before typing so keystrokes do not land in whatever
-	// window is foreground after the phone interaction (e.g. the terminal).
-	if err := r.deps.Focus.Focus(ctx, c.FocusTarget); err != nil {
-		delivery = domain.DeliveryFocusMissed
-	} else if err := r.deps.Focus.Type(ctx, focus.KeysForDigits(digits)); err != nil {
-		delivery = domain.DeliveryFocusMissed
+	// Only type when the human pressed something; hangup with no digits is done.
+	if digits != "" {
+		// Re-focus immediately before typing so keystrokes do not land in whatever
+		// window is foreground after the phone interaction (e.g. the terminal).
+		if err := r.deps.Focus.Focus(ctx, c.FocusTarget); err != nil {
+			delivery = domain.DeliveryFocusMissed
+		} else if err := r.deps.Focus.Type(ctx, focus.KeysForDigits(digits)); err != nil {
+			delivery = domain.DeliveryFocusMissed
+		}
 	}
 
 	_ = r.deps.Line.Hangup(context.Background())

@@ -1,13 +1,13 @@
-//go:build !darwin
+//go:build !darwin && !windows
 
 package phonemic
 
-// New builds a no-op PhoneMic on non-macOS platforms.
+// New builds a no-op PhoneMic on platforms without a virtual-mic adapter.
 func New(cfg Config) (PhoneMic, error) {
 	return &Stub{}, nil
 }
 
-// Stub is a no-op PhoneMic on non-macOS platforms.
+// Stub is a no-op PhoneMic on unsupported platforms.
 type Stub struct{}
 
 func (s *Stub) Start() error { return nil }

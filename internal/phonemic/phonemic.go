@@ -4,7 +4,8 @@ import (
 	"sync"
 )
 
-// PhoneMic feeds off-hook line RX audio into the host virtual microphone (macOS + BlackHole).
+// PhoneMic feeds off-hook line RX audio into the host virtual microphone
+// (macOS BlackHole / Windows VB-Cable).
 type PhoneMic interface {
 	Start() error
 	WritePCM(pcm []byte)
@@ -13,11 +14,11 @@ type PhoneMic interface {
 
 // Config configures the Phone Mic adapter.
 type Config struct {
-	Device string // Core Audio device name, default "BlackHole 2ch"
+	Device string // playback sink name (BlackHole / CABLE Input)
 	Logf   func(format string, args ...any)
 }
 
-const defaultDevice = "BlackHole 2ch"
+const defaultDevice = "BlackHole 2ch" // used by darwin build
 
 // Fake records PCM for tests.
 type Fake struct {

@@ -334,11 +334,10 @@ func (l *Line) CollectDigits(ctx context.Context, max int) (string, error) {
 	for b.Len() < max {
 		select {
 		case <-ctx.Done():
-			return b.String(), ctx.Err()
+			// Timeout / cancel: return whatever was pressed (possibly empty).
+			return b.String(), nil
 		case <-l.hangupCh:
-			if b.Len() == 0 {
-				return "", errors.New("sip line: remote hangup")
-			}
+			// Remote hangup after the prompt: not an error — caller may type nothing.
 			return b.String(), nil
 		case d := <-l.digitCh:
 			b.WriteRune(d)

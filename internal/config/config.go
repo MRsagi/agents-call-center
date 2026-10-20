@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -104,6 +105,13 @@ func Default() Config {
 		SIPPassword:        "acc",
 		SIPRealm:           "agents-call-center",
 		SIPExtension:       "100",
-		PhoneMicDevice:     "BlackHole 2ch",
+		PhoneMicDevice:     defaultPhoneMicDevice(),
 	}
+}
+
+func defaultPhoneMicDevice() string {
+	if runtime.GOOS == "windows" {
+		return "CABLE Input"
+	}
+	return "BlackHole 2ch"
 }
