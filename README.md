@@ -32,6 +32,8 @@ Run tests: `make test` or `go test ./...` (uses the **fake** line backend in uni
 
    Default API: `http://127.0.0.1:8741`. Set `ACC_LINE_BACKEND=virtual` or `sip` for real ringing (see below).
 
+   On Windows/macOS the status tray includes **Open Console**, which opens `http://127.0.0.1:8741/console/` (Call, Voicemail, Config pages). Linux omits that menu item. Disable the tray with `ACC_TRAY=0` or `tray_enabled: false` in the config file.
+
 2. Enqueue a call from another terminal or a hook:
 
    ```bash
@@ -60,6 +62,16 @@ Run tests: `make test` or `go test ./...` (uses the **fake** line backend in uni
    ```
 
    Tools: `place_call`, `get_call`, `get_queue`, `get_voicemail`. Override URL with `ACC_URL` or `acc mcp --url http://127.0.0.1:8741`.
+
+## Console and config file
+
+Persistent settings live in `{DataDir}/config.json` (default DataDir is the OS user config dir under `agents-call-center`). Override the data directory with `ACC_DATA_DIR`. Saving Config in the Console writes the file and restarts `acc serve` in-process; a failed re-bind exits non-zero.
+
+`ACC_*` environment variables still override file values (and are marked in the Console). Examples: `ACC_LINE_BACKEND`, `ACC_TRAY`, `ACC_SIP_*`.
+
+## Idle Dictation (`*2`)
+
+While the line is **idle**, dial Feature Code **`*2`** (config default) to start Idle Dictation: the daemon sends the configured hotkey (default `ctrl+m`) to the foreground app and holds the runner until hang-up. Agent Calls wait until dictation ends. Requires Phone Mic for handset audio (see below).
 
 ## Trust model
 

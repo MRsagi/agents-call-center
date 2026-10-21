@@ -2,6 +2,12 @@ package tray
 
 import "testing"
 
+func TestConsoleURL(t *testing.T) {
+	if got := ConsoleURL("127.0.0.1:8741"); got != "http://127.0.0.1:8741/console/" {
+		t.Fatal(got)
+	}
+}
+
 func TestTrayIconEmbedded(t *testing.T) {
 	// icon.ico is only linked into the systray-enabled build; this file always
 	// compiles. When the enabled file is in the same package build, trayIcon

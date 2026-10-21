@@ -5,10 +5,16 @@ package tray
 import (
 	"context"
 	"log"
+	"runtime"
 	"time"
 
 	"github.com/getlantern/systray"
 )
+
+// consoleBinder supplies the current HTTP bind for Open Console.
+type consoleBinder interface {
+	ConsoleHTTPBind() string
+}
 
 func runSystray(ctx context.Context, provider StatusProvider) {
 	done := make(chan struct{})
@@ -39,6 +45,13 @@ func onReady(ctx context.Context, provider StatusProvider) {
 	statusItem.Disable()
 	vmItem := systray.AddMenuItem("Voicemails: 0", "")
 	vmItem.Disable()
+
+	var openCh <-chan struct{}
+	if runtime.GOOS != "linux" {
+		openItem := systray.AddMenuItem("Open Console", "Open Console in browser")
+		openCh = openItem.ClickedCh
+	}
+
 	quitItem := systray.AddMenuItem("Quit", "Stop acc serve")
 
 	go func() {
@@ -46,6 +59,16 @@ func onReady(ctx context.Context, provider StatusProvider) {
 			select {
 			case <-ctx.Done():
 				return
+			case <-openCh:
+				bind := "127.0.0.1:8741"
+				if b, ok := provider.(consoleBinder); ok {
+					if s := b.ConsoleHTTPBind(); s != "" {
+						bind = s
+					}
+				}
+				if err := OpenURL(ConsoleURL(bind)); err != nil {
+					log.Printf("acc: open console: %v", err)
+				}
 			case <-quitItem.ClickedCh:
 				if q, ok := provider.(quitter); ok {
 					q.TrayQuit()
