@@ -61,34 +61,46 @@ func DefaultDataDir() string {
 }
 
 // ApplyEnv overrides cfg fields when the corresponding ACC_* environment variables are set.
-func ApplyEnv(cfg *Config) {
+// It returns a map of JSON field names that were overridden (for Console badges).
+func ApplyEnv(cfg *Config) map[string]bool {
+	overrides := make(map[string]bool)
 	if v := strings.TrimSpace(os.Getenv("ACC_LINE_BACKEND")); v != "" {
 		cfg.LineBackend = LineBackend(v)
+		overrides["line_backend"] = true
 	}
 	if v := strings.TrimSpace(os.Getenv("ACC_SIP_BIND")); v != "" {
 		cfg.SIPBind = v
+		overrides["sip_bind"] = true
 	}
 	if v := strings.TrimSpace(os.Getenv("ACC_SIP_USER")); v != "" {
 		cfg.SIPUser = v
+		overrides["sip_user"] = true
 	}
 	if v := strings.TrimSpace(os.Getenv("ACC_SIP_PASSWORD")); v != "" {
 		cfg.SIPPassword = v
+		overrides["sip_password"] = true
 	}
 	if v := strings.TrimSpace(os.Getenv("ACC_SIP_REALM")); v != "" {
 		cfg.SIPRealm = v
+		overrides["sip_realm"] = true
 	}
 	if v := strings.TrimSpace(os.Getenv("ACC_SIP_EXTENSION")); v != "" {
 		cfg.SIPExtension = v
+		overrides["sip_extension"] = true
 	}
 	if v := strings.TrimSpace(os.Getenv("ACC_SIP_PUBLIC_HOST")); v != "" {
 		cfg.SIPPublicHost = v
+		overrides["sip_public_host"] = true
 	}
 	if v := strings.TrimSpace(os.Getenv("ACC_PHONE_MIC_ENABLED")); v != "" {
 		cfg.PhoneMicEnabled = v == "1" || strings.EqualFold(v, "true")
+		overrides["phone_mic_enabled"] = true
 	}
 	if v := strings.TrimSpace(os.Getenv("ACC_PHONE_MIC_DEVICE")); v != "" {
 		cfg.PhoneMicDevice = v
+		overrides["phone_mic_device"] = true
 	}
+	return overrides
 }
 
 func Default() Config {
