@@ -65,6 +65,16 @@ Run tests: `make test` or `go test ./...` (uses the **fake** line backend in uni
 
 ## Console and config file
 
+On Windows/macOS, tray **Open Console** opens the localhost Console (or visit `http://127.0.0.1:8741/console/`):
+
+| Call | Voicemail | Config |
+|:----:|:---------:|:------:|
+| ![Call page](docs/images/console-call.png) | ![Voicemail page](docs/images/console-voicemail.png) | ![Config page](docs/images/console-config.png) |
+
+- **Call** — live Prompt / status, Idle Dictation banner, recent Calls  
+- **Voicemail** — read full Prompt text; delete or clear (phone `*1` still plays audio)  
+- **Config** — full settings form; env-overridden fields show an **ENV** badge  
+
 Persistent settings live in `{DataDir}/config.json` (default DataDir is the OS user config dir under `agents-call-center`). Override the data directory with `ACC_DATA_DIR`. Saving Config in the Console writes the file and restarts `acc serve` in-process; a failed re-bind exits non-zero.
 
 `ACC_*` environment variables still override file values (and are marked in the Console). Examples: `ACC_LINE_BACKEND`, `ACC_TRAY`, `ACC_SIP_*`.
