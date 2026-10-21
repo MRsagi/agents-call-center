@@ -67,12 +67,16 @@ func (f *Fake) Hangup(_ context.Context) error {
 }
 
 func (f *Fake) OnIdleDigits(handler func(digits string)) {
+	f.mu.Lock()
 	f.idleHandler = handler
+	f.mu.Unlock()
 }
 
 // TriggerIdleDigits invokes the idle-digit handler asynchronously (like SIP/Virtual delivery).
 func (f *Fake) TriggerIdleDigits(digits string) {
+	f.mu.Lock()
 	h := f.idleHandler
+	f.mu.Unlock()
 	if h == nil {
 		return
 	}

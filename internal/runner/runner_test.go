@@ -152,18 +152,20 @@ func TestRunner_IdleDictationBlocksUntilHangup(t *testing.T) {
 	go r.Start(ctx)
 
 	deadline := time.Now().Add(500 * time.Millisecond)
+	var typed [][]string
 	for time.Now().Before(deadline) {
 		ln.TriggerIdleDigits("*2")
-		if len(foc.Typed) >= 1 {
+		typed = foc.TypedSnapshot()
+		if len(typed) >= 1 {
 			break
 		}
 		time.Sleep(5 * time.Millisecond)
 	}
-	if len(foc.Typed) < 1 || len(foc.Typed[0]) < 1 || foc.Typed[0][0] != "Ctrl+m" {
-		t.Fatalf("first typed=%v want Ctrl+m", foc.Typed)
+	if len(typed) < 1 || len(typed[0]) < 1 || typed[0][0] != "Ctrl+m" {
+		t.Fatalf("first typed=%v want Ctrl+m", typed)
 	}
-	if len(foc.Focuses) != 0 {
-		t.Fatalf("focus called during dictation: %v", foc.Focuses)
+	if focuses := foc.FocusSnapshot(); len(focuses) != 0 {
+		t.Fatalf("focus called during dictation: %v", focuses)
 	}
 	gotStarted := false
 	select {
@@ -194,13 +196,14 @@ func TestRunner_IdleDictationBlocksUntilHangup(t *testing.T) {
 
 	deadline = time.Now().Add(500 * time.Millisecond)
 	for time.Now().Before(deadline) {
-		if len(foc.Typed) >= 2 {
+		typed = foc.TypedSnapshot()
+		if len(typed) >= 2 {
 			break
 		}
 		time.Sleep(5 * time.Millisecond)
 	}
-	if len(foc.Typed) < 2 || foc.Typed[1][0] != "Ctrl+m" {
-		t.Fatalf("second typed=%v want Ctrl+m", foc.Typed)
+	if len(typed) < 2 || typed[1][0] != "Ctrl+m" {
+		t.Fatalf("second typed=%v want Ctrl+m", typed)
 	}
 	select {
 	case ev := <-events:

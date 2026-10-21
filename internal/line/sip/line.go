@@ -10,6 +10,7 @@ import (
 	"net"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/MRsagi/agents-call-center/internal/line"
@@ -17,6 +18,14 @@ import (
 	"github.com/emiago/sipgo/sip"
 	"github.com/icholy/digest"
 )
+
+// MaxIdleDictationWait is the safety-valve timeout for WaitHangup when there is
+// no ACC-owned dialog (idle PAP2T). True on-hook without SIP signaling is a
+// PAP2T limitation; a BYE (any dialog) or this timeout ends the wait.
+const MaxIdleDictationWait = 5 * time.Minute
+
+// idleHangupMaxWait is MaxIdleDictationWait; tests may shorten it.
+var idleHangupMaxWait = MaxIdleDictationWait
 
 // Config configures the embedded SIP registrar/UA for ATA devices (e.g. PAP2T).
 type Config struct {
@@ -58,6 +67,7 @@ type Line struct {
 	digitCh     chan rune
 	collecting  bool
 	collectMax  int
+	hangupWaiters atomic.Int32
 
 	rxPCM func([]byte)
 }
@@ -366,14 +376,45 @@ func (l *Line) Hangup(ctx context.Context) error {
 			return err
 		}
 	}
+	// Drain so a BYE observed during teardown cannot end the next WaitHangup.
+	select {
+	case <-l.hangupCh:
+	default:
+	}
 	return nil
 }
 
 // WaitHangup blocks until BYE / on-hook is signaled (e.g. during Idle Dictation).
+// A stale hangupCh signal is drained first. When dialogSess is nil (idle, no ACC
+// outbound call), wait ends on BYE or MaxIdleDictationWait — PAP2T may not signal
+// on-hook without SIP, so the timeout prevents wedging the processing lock forever.
 func (l *Line) WaitHangup(ctx context.Context) error {
 	l.callMu.Lock()
+	select {
+	case <-l.hangupCh:
+	default:
+	}
+	idle := l.dialogSess == nil
 	ch := l.hangupCh
 	l.callMu.Unlock()
+
+	l.hangupWaiters.Add(1)
+	defer l.hangupWaiters.Add(-1)
+
+	if idle {
+		timer := time.NewTimer(idleHangupMaxWait)
+		defer timer.Stop()
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ch:
+			return nil
+		case <-timer.C:
+			l.cfg.Logf("sip: idle hangup wait timed out after %v", idleHangupMaxWait)
+			return fmt.Errorf("sip: idle hangup wait timed out")
+		}
+	}
+
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
@@ -575,6 +616,17 @@ func (l *Line) onInfo(req *sip.Request, tx sip.ServerTransaction) {
 
 func (l *Line) onBye(req *sip.Request, tx sip.ServerTransaction) {
 	if err := l.dialog.ReadBye(req, tx); err == nil {
+		select {
+		case l.hangupCh <- struct{}{}:
+		default:
+		}
+		return
+	}
+	// ATA may BYE a dialog ACC's DialogClientCache doesn't own (idle PAP2T).
+	// When WaitHangup is active, accept and signal so Idle Dictation can end.
+	if l.hangupWaiters.Load() > 0 {
+		res := sip.NewResponseFromRequest(req, 200, "OK", nil)
+		_ = tx.Respond(res)
 		select {
 		case l.hangupCh <- struct{}{}:
 		default:

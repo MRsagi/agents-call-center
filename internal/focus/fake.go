@@ -35,3 +35,21 @@ func (f *Fake) Type(ctx context.Context, keys []string) error {
 	}
 	return nil
 }
+
+// TypedSnapshot returns a copy of Typed under the fake mutex.
+func (f *Fake) TypedSnapshot() [][]string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	out := make([][]string, len(f.Typed))
+	for i, keys := range f.Typed {
+		out[i] = append([]string(nil), keys...)
+	}
+	return out
+}
+
+// FocusSnapshot returns a copy of Focuses under the fake mutex.
+func (f *Fake) FocusSnapshot() []domain.FocusTarget {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]domain.FocusTarget(nil), f.Focuses...)
+}
