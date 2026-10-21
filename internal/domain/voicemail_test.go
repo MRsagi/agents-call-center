@@ -58,3 +58,26 @@ func TestVoicemail_PersistsAcrossOpen(t *testing.T) {
 		t.Fatalf("count=%d", n)
 	}
 }
+
+func TestVoicemail_ListAndDeleteAll(t *testing.T) {
+	dir := t.TempDir()
+	s, err := domain.OpenVoicemailStore(filepath.Join(dir, "vm.jsonl"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	c1, _ := domain.NewCall("one", domain.ModeDTMF, domain.FocusTarget{App: "A"}, 1)
+	c2, _ := domain.NewCall("two", domain.ModeDTMF, domain.FocusTarget{App: "B"}, 1)
+	_ = s.Leave(c1)
+	_ = s.Leave(c2)
+	list, err := s.List()
+	if err != nil || len(list) != 2 {
+		t.Fatalf("list=%v err=%v", list, err)
+	}
+	if err := s.DeleteAll(); err != nil {
+		t.Fatal(err)
+	}
+	n, _ := s.Count()
+	if n != 0 {
+		t.Fatalf("count=%d", n)
+	}
+}

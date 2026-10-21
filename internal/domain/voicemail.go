@@ -24,6 +24,8 @@ type VoicemailStore interface {
 	Leave(*Call) error
 	OldestUnheard() (*VoicemailEntry, error)
 	MarkHeard(id string) error
+	List() ([]VoicemailEntry, error)
+	DeleteAll() error
 	Count() (int, error)
 }
 
@@ -115,6 +117,21 @@ func (s *jsonlVoicemailStore) OldestUnheard() (*VoicemailEntry, error) {
 	}
 	e := entries[0]
 	return &e, nil
+}
+
+func (s *jsonlVoicemailStore) List() ([]VoicemailEntry, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.readAll()
+}
+
+func (s *jsonlVoicemailStore) DeleteAll() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := os.Remove(s.path); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
 }
 
 func (s *jsonlVoicemailStore) MarkHeard(id string) error {
