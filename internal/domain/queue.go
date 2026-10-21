@@ -61,6 +61,19 @@ func (q *Queue) Snapshot() []*Call {
 	return out
 }
 
+// ActiveCall returns the ringing or in-progress Call, if any.
+func (q *Queue) ActiveCall() *Call {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	for _, c := range q.byID {
+		switch c.Status {
+		case StatusRinging, StatusInProgress:
+			return c
+		}
+	}
+	return nil
+}
+
 // LastFinishedSummary returns a short label for the most recently finished call, if any.
 func (q *Queue) LastFinishedSummary() string {
 	q.mu.Lock()

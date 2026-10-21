@@ -3,6 +3,7 @@ package config
 import (
 	"encoding/json"
 	"errors"
+	"net"
 	"os"
 	"path/filepath"
 	"time"
@@ -121,6 +122,49 @@ func fromDTO(dto fileDTO) Config {
 		cfg.TrayEnabled = *dto.TrayEnabled
 	}
 	return cfg
+}
+
+// AsFileDTO returns the snake_case JSON shape used for config files and Console APIs.
+func AsFileDTO(cfg Config) any {
+	return toDTO(cfg)
+}
+
+// FromFileJSON decodes snake_case config JSON into a Config (with defaults for unset fields).
+func FromFileJSON(data []byte) (Config, error) {
+	var dto fileDTO
+	if err := json.Unmarshal(data, &dto); err != nil {
+		return Config{}, err
+	}
+	return fromDTO(dto), nil
+}
+
+// Validate checks backends and localhost HTTP bind for Console save.
+func Validate(cfg Config) error {
+	switch cfg.LineBackend {
+	case LineBackendFake, LineBackendSIP, LineBackendVirtual:
+	default:
+		return errors.New("invalid line_backend")
+	}
+	switch cfg.SynthBackend {
+	case SynthBackendFake, SynthBackendOS:
+	default:
+		return errors.New("invalid synth_backend")
+	}
+	switch cfg.FocusBackend {
+	case FocusBackendFake, FocusBackendOS:
+	default:
+		return errors.New("invalid focus_backend")
+	}
+	if cfg.HTTPBind != "" {
+		host, _, err := net.SplitHostPort(cfg.HTTPBind)
+		if err != nil {
+			return errors.New("invalid http_bind")
+		}
+		if host != "127.0.0.1" && host != "localhost" {
+			return errors.New("http_bind must be localhost only")
+		}
+	}
+	return nil
 }
 
 // SaveFile writes cfg to path as snake_case JSON.
