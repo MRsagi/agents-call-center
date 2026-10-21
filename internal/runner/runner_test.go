@@ -38,7 +38,7 @@ func TestRunner_CompletedDeliversKeystrokes(t *testing.T) {
 	syn := &synth.Fake{}
 	r := runner.New(runner.Deps{
 		Queue: q, Line: ln, Synth: syn, Focus: foc, Voicemail: vm,
-		Dialplan: domain.NewDialplan("*1"),
+		Dialplan: domain.NewDialplan("*1", "*2"),
 		RingTimeout: time.Second,
 	})
 	go r.Start(ctx)
@@ -61,7 +61,7 @@ func TestRunner_NoAnswerLeavesVoicemail(t *testing.T) {
 	syn := &synth.Fake{}
 	r := runner.New(runner.Deps{
 		Queue: q, Line: ln, Synth: syn, Focus: foc, Voicemail: vm,
-		Dialplan: domain.NewDialplan("*1"),
+		Dialplan: domain.NewDialplan("*1", "*2"),
 		RingTimeout: 50 * time.Millisecond,
 	})
 	go r.Start(ctx)
@@ -85,7 +85,7 @@ func TestRunner_TypeFailStillCompletes(t *testing.T) {
 	syn := &synth.Fake{}
 	r := runner.New(runner.Deps{
 		Queue: q, Line: ln, Synth: syn, Focus: foc, Voicemail: vm,
-		Dialplan: domain.NewDialplan("*1"),
+		Dialplan: domain.NewDialplan("*1", "*2"),
 		RingTimeout: time.Second,
 	})
 	go r.Start(ctx)
@@ -112,7 +112,7 @@ func TestRunner_FocusFailStillCompletes(t *testing.T) {
 	syn := &synth.Fake{}
 	r := runner.New(runner.Deps{
 		Queue: q, Line: ln, Synth: syn, Focus: foc, Voicemail: vm,
-		Dialplan: domain.NewDialplan("*1"),
+		Dialplan: domain.NewDialplan("*1", "*2"),
 		RingTimeout: time.Second,
 	})
 	go r.Start(ctx)

@@ -35,7 +35,9 @@ type Config struct {
 	DataDir         string
 	RingTimeout     time.Duration
 	LineRecoverWait time.Duration
-	FeatureCode     string
+	FeatureCode        string
+	IdleDictationCode  string
+	DictationHotkey    string
 	LineBackend         LineBackend
 	SynthBackend        SynthBackend
 	FocusBackend        FocusBackend
@@ -95,7 +97,9 @@ func Default() Config {
 		DataDir:         DefaultDataDir(),
 		RingTimeout:     90 * time.Second,
 		LineRecoverWait: 3 * time.Second,
-		FeatureCode:     "*1",
+		FeatureCode:       "*1",
+		IdleDictationCode: "*2",
+		DictationHotkey:   "ctrl+m",
 		LineBackend:        LineBackendFake,
 		SynthBackend:       SynthBackendFake,
 		FocusBackend:       FocusBackendFake,

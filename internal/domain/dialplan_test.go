@@ -6,8 +6,21 @@ import (
 	"github.com/MRsagi/agents-call-center/internal/domain"
 )
 
+func TestDialplan_IdleDictation(t *testing.T) {
+	d := domain.NewDialplan("*1", "*2")
+	if d.MatchIdle("*2") != domain.IdleDictation {
+		t.Fatal("want IdleDictation")
+	}
+	if d.MatchIdle("*1") != domain.IdleVoicemail {
+		t.Fatal("want IdleVoicemail")
+	}
+	if d.MatchIdle("*3") != domain.IdleError {
+		t.Fatal("want IdleError")
+	}
+}
+
 func TestDialplan_VoicemailCode(t *testing.T) {
-	d := domain.NewDialplan("*1")
+	d := domain.NewDialplan("*1", "*2")
 	if d.MatchIdle("*1") != domain.IdleVoicemail {
 		t.Fatal("want voicemail")
 	}

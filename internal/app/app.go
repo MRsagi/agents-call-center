@@ -177,7 +177,7 @@ func NewWithAdapters(cfg config.Config, ad Adapters) (*App, error) {
 		Synth:           syn,
 		Focus:           foc,
 		Voicemail:       vm,
-		Dialplan:        domain.NewDialplan(cfg.FeatureCode),
+		Dialplan:        domain.NewDialplan(cfg.FeatureCode, cfg.IdleDictationCode),
 		RingTimeout:     cfg.RingTimeout,
 		LineRecoverWait: cfg.LineRecoverWait,
 	})

@@ -5,18 +5,23 @@ type IdleAction int
 const (
 	IdleNone IdleAction = iota
 	IdleVoicemail
+	IdleDictation
 	IdleError
 )
 
 type Dialplan struct {
-	VoicemailCode string
+	VoicemailCode     string
+	IdleDictationCode string
 }
 
-func NewDialplan(voicemailCode string) Dialplan {
+func NewDialplan(voicemailCode, idleDictationCode string) Dialplan {
 	if voicemailCode == "" {
 		voicemailCode = "*1"
 	}
-	return Dialplan{VoicemailCode: voicemailCode}
+	if idleDictationCode == "" {
+		idleDictationCode = "*2"
+	}
+	return Dialplan{VoicemailCode: voicemailCode, IdleDictationCode: idleDictationCode}
 }
 
 func (d Dialplan) MatchIdle(digits string) IdleAction {
@@ -25,6 +30,9 @@ func (d Dialplan) MatchIdle(digits string) IdleAction {
 	}
 	if digits == d.VoicemailCode {
 		return IdleVoicemail
+	}
+	if digits == d.IdleDictationCode {
+		return IdleDictation
 	}
 	return IdleError
 }
