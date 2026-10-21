@@ -130,3 +130,89 @@ func TestRunner_FocusFailStillCompletes(t *testing.T) {
 		t.Fatalf("typed=%v want none when focus fails", foc.Typed)
 	}
 }
+
+func TestRunner_IdleDictationBlocksUntilHangup(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	q := domain.NewQueue()
+	vmPath := filepath.Join(t.TempDir(), "vm.jsonl")
+	vm, _ := domain.OpenVoicemailStore(vmPath)
+	foc := &focus.Fake{}
+	ln := line.NewFake(line.FakeScript{AnswerAfter: time.Millisecond, Digits: "1"})
+	syn := &synth.Fake{}
+	bus := domain.NewBus()
+	events := bus.Subscribe(ctx)
+	r := runner.New(runner.Deps{
+		Queue: q, Line: ln, Synth: syn, Focus: foc, Voicemail: vm,
+		Dialplan:        domain.NewDialplan("*1", "*2"),
+		RingTimeout:     time.Second,
+		Events:          bus,
+		DictationHotkey: "ctrl+m",
+	})
+	go r.Start(ctx)
+
+	deadline := time.Now().Add(500 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		ln.TriggerIdleDigits("*2")
+		if len(foc.Typed) >= 1 {
+			break
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	if len(foc.Typed) < 1 || len(foc.Typed[0]) < 1 || foc.Typed[0][0] != "Ctrl+m" {
+		t.Fatalf("first typed=%v want Ctrl+m", foc.Typed)
+	}
+	if len(foc.Focuses) != 0 {
+		t.Fatalf("focus called during dictation: %v", foc.Focuses)
+	}
+	gotStarted := false
+	select {
+	case ev := <-events:
+		if ev.Type != domain.EventDictationStarted {
+			t.Fatalf("event=%q want %q", ev.Type, domain.EventDictationStarted)
+		}
+		gotStarted = true
+	case <-time.After(200 * time.Millisecond):
+		t.Fatal("missing dictation.started")
+	}
+	if !gotStarted {
+		t.Fatal("missing dictation.started")
+	}
+	if !r.IdleDictating() {
+		t.Fatal("want IdleDictating true while waiting for hangup")
+	}
+
+	c, _ := domain.NewCall("blocked?", domain.ModeDTMF, domain.FocusTarget{App: "Cursor"}, 1)
+	_ = q.Enqueue(c)
+	time.Sleep(100 * time.Millisecond)
+	got, _ := q.Get(c.ID)
+	if got.Status != domain.StatusQueued {
+		t.Fatalf("status=%v want queued while dictating", got.Status)
+	}
+
+	ln.TriggerHangup()
+
+	deadline = time.Now().Add(500 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		if len(foc.Typed) >= 2 {
+			break
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	if len(foc.Typed) < 2 || foc.Typed[1][0] != "Ctrl+m" {
+		t.Fatalf("second typed=%v want Ctrl+m", foc.Typed)
+	}
+	select {
+	case ev := <-events:
+		if ev.Type != domain.EventDictationStopped {
+			t.Fatalf("event=%q want %q", ev.Type, domain.EventDictationStopped)
+		}
+	case <-time.After(200 * time.Millisecond):
+		t.Fatal("missing dictation.stopped")
+	}
+	if r.IdleDictating() {
+		t.Fatal("want IdleDictating false after hangup")
+	}
+
+	waitStatus(t, q, c.ID, domain.StatusCompleted, 2*time.Second)
+}

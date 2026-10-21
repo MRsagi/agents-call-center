@@ -369,6 +369,19 @@ func (l *Line) Hangup(ctx context.Context) error {
 	return nil
 }
 
+// WaitHangup blocks until BYE / on-hook is signaled (e.g. during Idle Dictation).
+func (l *Line) WaitHangup(ctx context.Context) error {
+	l.callMu.Lock()
+	ch := l.hangupCh
+	l.callMu.Unlock()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-ch:
+		return nil
+	}
+}
+
 func (l *Line) Close() error {
 	if l.ua != nil {
 		return l.ua.Close()
@@ -580,6 +593,7 @@ func truncateForLog(b []byte, n int) string {
 }
 
 var (
-	_ line.Line      = (*Line)(nil)
-	_ line.ReadyLine = (*Line)(nil)
+	_ line.Line         = (*Line)(nil)
+	_ line.ReadyLine    = (*Line)(nil)
+	_ line.HangupWaiter = (*Line)(nil)
 )

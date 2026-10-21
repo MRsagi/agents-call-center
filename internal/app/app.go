@@ -29,6 +29,10 @@ type App struct {
 	Synth     synth.Synthesizer
 	Focus     focus.Focuser
 	PhoneMic  phonemic.PhoneMic
+	Events    *domain.Bus
+	Recent    *domain.RecentCalls
+
+	warnPhoneMic bool
 
 	mu         sync.Mutex
 	runCancel  context.CancelFunc
@@ -61,6 +65,12 @@ func NewWithAdapters(cfg config.Config, ad Adapters) (*App, error) {
 	}
 	if cfg.FeatureCode == "" {
 		cfg.FeatureCode = def.FeatureCode
+	}
+	if cfg.IdleDictationCode == "" {
+		cfg.IdleDictationCode = def.IdleDictationCode
+	}
+	if cfg.DictationHotkey == "" {
+		cfg.DictationHotkey = def.DictationHotkey
 	}
 	if cfg.LineBackend == "" {
 		cfg.LineBackend = def.LineBackend
@@ -171,6 +181,12 @@ func NewWithAdapters(cfg config.Config, ad Adapters) (*App, error) {
 	}
 
 	q := domain.NewQueue()
+	events := domain.NewBus()
+	recent := domain.NewRecentCalls(20)
+	warnPhoneMic := pm == nil
+	if cfg.PhoneMicEnabled && warnPhoneMic {
+		log.Printf("phone mic: enabled but unavailable; Idle Dictation will warn")
+	}
 	r := runner.New(runner.Deps{
 		Queue:           q,
 		Line:            ln,
@@ -180,17 +196,24 @@ func NewWithAdapters(cfg config.Config, ad Adapters) (*App, error) {
 		Dialplan:        domain.NewDialplan(cfg.FeatureCode, cfg.IdleDictationCode),
 		RingTimeout:     cfg.RingTimeout,
 		LineRecoverWait: cfg.LineRecoverWait,
+		Events:          events,
+		Recent:          recent,
+		DictationHotkey: cfg.DictationHotkey,
+		WarnPhoneMic:    warnPhoneMic,
 	})
 
 	return &App{
-		Config:    cfg,
-		Queue:     q,
-		Runner:    r,
-		Voicemail: vm,
-		Line:      ln,
-		Synth:     syn,
-		Focus:     foc,
-		PhoneMic:  pm,
+		Config:       cfg,
+		Queue:        q,
+		Runner:       r,
+		Voicemail:    vm,
+		Line:         ln,
+		Synth:        syn,
+		Focus:        foc,
+		PhoneMic:     pm,
+		Events:       events,
+		Recent:       recent,
+		warnPhoneMic: warnPhoneMic,
 	}, nil
 }
 
@@ -239,6 +262,19 @@ func (a *App) LineUp() bool {
 		return rl.Ready()
 	}
 	return true
+}
+
+// IdleDictating reports whether an Idle Dictation session is in progress.
+func (a *App) IdleDictating() bool {
+	if a.Runner == nil {
+		return false
+	}
+	return a.Runner.IdleDictating()
+}
+
+// DictationWarning is true when Phone Mic is unavailable (Console warns on *2).
+func (a *App) DictationWarning() bool {
+	return a.warnPhoneMic
 }
 
 // StatusSnapshot implements tray.StatusProvider for the status tray.

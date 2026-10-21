@@ -201,6 +201,24 @@ func (v *Virtual) Hangup(_ context.Context) error {
 	return nil
 }
 
+// WaitHangup blocks until a HANGUP control command (or Hangup) signals on-hook.
+func (v *Virtual) WaitHangup(ctx context.Context) error {
+	v.mu.Lock()
+	ch := v.hangupCh
+	v.mu.Unlock()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-ch:
+		v.mu.Lock()
+		if v.hangupCh == ch {
+			v.hangupCh = make(chan struct{}, 1)
+		}
+		v.mu.Unlock()
+		return nil
+	}
+}
+
 func (v *Virtual) OnIdleDigits(handler func(digits string)) {
 	v.mu.Lock()
 	v.idleHandler = handler
@@ -398,3 +416,5 @@ func virtualPlayFile(ctx context.Context, path string, logf func(format string, 
 	logf("virtual line: no audio player available (skipped playback)")
 	return nil
 }
+
+var _ HangupWaiter = (*Virtual)(nil)

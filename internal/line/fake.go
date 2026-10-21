@@ -2,6 +2,7 @@ package line
 
 import (
 	"context"
+	"sync"
 	"time"
 )
 
@@ -14,10 +15,13 @@ type FakeScript struct {
 type Fake struct {
 	script      FakeScript
 	idleHandler func(digits string)
+
+	mu       sync.Mutex
+	hangupCh chan struct{}
 }
 
 func NewFake(script FakeScript) *Fake {
-	return &Fake{script: script}
+	return &Fake{script: script, hangupCh: make(chan struct{})}
 }
 
 func (f *Fake) Ready() bool {
@@ -65,3 +69,42 @@ func (f *Fake) Hangup(_ context.Context) error {
 func (f *Fake) OnIdleDigits(handler func(digits string)) {
 	f.idleHandler = handler
 }
+
+// TriggerIdleDigits invokes the idle-digit handler asynchronously (like SIP/Virtual delivery).
+func (f *Fake) TriggerIdleDigits(digits string) {
+	h := f.idleHandler
+	if h == nil {
+		return
+	}
+	go h(digits)
+}
+
+// TriggerHangup closes the hangup channel so WaitHangup returns.
+func (f *Fake) TriggerHangup() {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	select {
+	case <-f.hangupCh:
+	default:
+		close(f.hangupCh)
+	}
+}
+
+func (f *Fake) WaitHangup(ctx context.Context) error {
+	f.mu.Lock()
+	ch := f.hangupCh
+	f.mu.Unlock()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-ch:
+		f.mu.Lock()
+		if f.hangupCh == ch {
+			f.hangupCh = make(chan struct{})
+		}
+		f.mu.Unlock()
+		return nil
+	}
+}
+
+var _ HangupWaiter = (*Fake)(nil)

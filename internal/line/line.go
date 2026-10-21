@@ -16,3 +16,9 @@ type Line interface {
 type ReadyLine interface {
 	Ready() bool
 }
+
+// HangupWaiter waits until the human hangs up (BYE / on-hook). Optional on Line;
+// Idle Dictation requires it so the runner can block until the session ends.
+type HangupWaiter interface {
+	WaitHangup(ctx context.Context) error
+}

@@ -3,7 +3,9 @@ package runner
 import (
 	"context"
 	"errors"
+	"log"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/MRsagi/agents-call-center/internal/config"
@@ -22,13 +24,19 @@ type Deps struct {
 	Dialplan        domain.Dialplan
 	RingTimeout     time.Duration
 	LineRecoverWait time.Duration
+	Events          *domain.Bus
+	Recent          *domain.RecentCalls
+	DictationHotkey string
+	WarnPhoneMic    bool
 }
 
 type Runner struct {
 	deps Deps
 
-	mu        sync.Mutex
+	mu         sync.Mutex
 	processing bool
+
+	idleDictating atomic.Bool
 }
 
 func New(deps Deps) *Runner {
@@ -39,7 +47,14 @@ func New(deps Deps) *Runner {
 	if deps.LineRecoverWait == 0 {
 		deps.LineRecoverWait = def.LineRecoverWait
 	}
+	if deps.DictationHotkey == "" {
+		deps.DictationHotkey = def.DictationHotkey
+	}
 	return &Runner{deps: deps}
+}
+
+func (r *Runner) IdleDictating() bool {
+	return r.idleDictating.Load()
 }
 
 func (r *Runner) Start(ctx context.Context) {
@@ -96,8 +111,27 @@ func (r *Runner) clearIdle() {
 	r.clearProcessing()
 }
 
+func (r *Runner) setDictating(v bool) {
+	r.idleDictating.Store(v)
+}
+
+func (r *Runner) publish(ev domain.Event) {
+	if r.deps.Events == nil {
+		return
+	}
+	r.deps.Events.Publish(ev)
+}
+
+func (r *Runner) recordCall(c *domain.Call) {
+	if r.deps.Recent != nil {
+		r.deps.Recent.Add(c)
+	}
+	r.publish(domain.Event{Type: domain.EventCallUpdated, Payload: c})
+}
+
 func (r *Runner) processCall(ctx context.Context, c *domain.Call) {
 	defer r.clearProcessing()
+	defer r.recordCall(c)
 
 	c.Status = domain.StatusRinging
 
@@ -210,8 +244,41 @@ func (r *Runner) handleIdleDigits(ctx context.Context, digits string) {
 		_ = r.deps.Focus.Focus(ctx, entry.FocusTarget)
 		_ = r.deps.Focus.Type(ctx, focus.KeysForDigits(collected))
 		_ = r.deps.Voicemail.MarkHeard(entry.CallID)
+	case domain.IdleDictation:
+		r.runIdleDictation(ctx)
 	case domain.IdleError, domain.IdleNone:
 	}
+}
+
+func (r *Runner) runIdleDictation(ctx context.Context) {
+	r.setDictating(true)
+	r.publish(domain.Event{Type: domain.EventDictationStarted})
+	if r.deps.WarnPhoneMic {
+		log.Printf("idle dictation: Phone Mic unavailable; hotkey still sent")
+	}
+
+	keys, err := focus.KeysForChord(r.deps.DictationHotkey)
+	if err == nil {
+		_ = r.deps.Focus.Type(ctx, keys) // NO Focus()
+	}
+
+	hw, ok := r.deps.Line.(line.HangupWaiter)
+	if !ok {
+		log.Printf("idle dictation: line lacks HangupWaiter")
+		if keys != nil {
+			_ = r.deps.Focus.Type(ctx, keys)
+		}
+		r.setDictating(false)
+		r.publish(domain.Event{Type: domain.EventDictationStopped})
+		return
+	}
+	_ = hw.WaitHangup(ctx)
+
+	if keys != nil {
+		_ = r.deps.Focus.Type(ctx, keys)
+	}
+	r.setDictating(false)
+	r.publish(domain.Event{Type: domain.EventDictationStopped})
 }
 
 func (r *Runner) clearIdleDigitBuffer() {
