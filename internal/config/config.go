@@ -50,6 +50,7 @@ type Config struct {
 	SIPPublicHost       string
 	PhoneMicEnabled     bool
 	PhoneMicDevice      string
+	TrayEnabled         bool
 }
 
 func DefaultDataDir() string {
@@ -100,6 +101,10 @@ func ApplyEnv(cfg *Config) map[string]bool {
 		cfg.PhoneMicDevice = v
 		overrides["phone_mic_device"] = true
 	}
+	if v := strings.TrimSpace(os.Getenv("ACC_TRAY")); v != "" {
+		cfg.TrayEnabled = v != "0" && !strings.EqualFold(v, "false")
+		overrides["tray_enabled"] = true
+	}
 	return overrides
 }
 
@@ -122,6 +127,7 @@ func Default() Config {
 		SIPRealm:           "agents-call-center",
 		SIPExtension:       "100",
 		PhoneMicDevice:     defaultPhoneMicDevice(),
+		TrayEnabled:        true,
 	}
 }
 

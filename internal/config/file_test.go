@@ -11,7 +11,8 @@ func TestLoadSaveRoundTrip(t *testing.T) {
 	cfg := Default()
 	cfg.FeatureCode = "*9"
 	cfg.IdleDictationCode = "*8"
-	cfg.DictationHotkey = "ctrl+m"
+	cfg.DictationHotkey = "alt+d"
+	cfg.TrayEnabled = false
 	if err := SaveFile(path, cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -21,6 +22,12 @@ func TestLoadSaveRoundTrip(t *testing.T) {
 	}
 	if got.FeatureCode != "*9" || got.IdleDictationCode != "*8" {
 		t.Fatalf("%+v", got)
+	}
+	if got.DictationHotkey != "alt+d" {
+		t.Fatalf("dictation_hotkey=%q", got.DictationHotkey)
+	}
+	if got.TrayEnabled {
+		t.Fatal("expected tray_enabled false")
 	}
 }
 

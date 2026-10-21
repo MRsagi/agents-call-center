@@ -28,11 +28,11 @@ type fileDTO struct {
 	SIPPublicHost      string `json:"sip_public_host"`
 	PhoneMicEnabled    bool   `json:"phone_mic_enabled"`
 	PhoneMicDevice     string `json:"phone_mic_device"`
-	TrayEnabled        *bool  `json:"tray_enabled"` // nil = default on
+	TrayEnabled        *bool  `json:"tray_enabled,omitempty"` // nil = default on
 }
 
 func toDTO(cfg Config) fileDTO {
-	return fileDTO{
+	dto := fileDTO{
 		HTTPBind:           cfg.HTTPBind,
 		DataDir:            cfg.DataDir,
 		RingTimeoutMS:      cfg.RingTimeout.Milliseconds(),
@@ -53,6 +53,11 @@ func toDTO(cfg Config) fileDTO {
 		PhoneMicEnabled:    cfg.PhoneMicEnabled,
 		PhoneMicDevice:     cfg.PhoneMicDevice,
 	}
+	if !cfg.TrayEnabled {
+		f := false
+		dto.TrayEnabled = &f
+	}
+	return dto
 }
 
 func fromDTO(dto fileDTO) Config {
@@ -111,6 +116,9 @@ func fromDTO(dto fileDTO) Config {
 	cfg.PhoneMicEnabled = dto.PhoneMicEnabled
 	if dto.PhoneMicDevice != "" {
 		cfg.PhoneMicDevice = dto.PhoneMicDevice
+	}
+	if dto.TrayEnabled != nil {
+		cfg.TrayEnabled = *dto.TrayEnabled
 	}
 	return cfg
 }
