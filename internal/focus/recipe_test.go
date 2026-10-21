@@ -15,3 +15,13 @@ func TestKeysForDigits(t *testing.T) {
 		t.Fatal("empty digits should yield no keys")
 	}
 }
+
+func TestKeysForChord_CtrlM(t *testing.T) {
+	keys, err := focus.KeysForChord("ctrl+m")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(keys) != 1 || keys[0] != "Ctrl+m" {
+		t.Fatalf("got %#v", keys)
+	}
+}

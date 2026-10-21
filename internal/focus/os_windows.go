@@ -79,7 +79,48 @@ func windowsSendKey(key string) string {
 	case "Space":
 		return " "
 	default:
+		if chord, ok := windowsChordSendKeys(key); ok {
+			return chord
+		}
 		return sendKeysEscapeLiteral(key)
+	}
+}
+
+// windowsChordSendKeys maps tokens like "Ctrl+m" to SendKeys "^m".
+// Modifier prefixes (^ % +) are emitted unescaped; only the final key is escaped.
+func windowsChordSendKeys(key string) (string, bool) {
+	parts := strings.Split(key, "+")
+	if len(parts) < 2 {
+		return "", false
+	}
+	var mods strings.Builder
+	for _, p := range parts[:len(parts)-1] {
+		switch p {
+		case "Ctrl":
+			mods.WriteByte('^')
+		case "Alt":
+			mods.WriteByte('%')
+		case "Shift":
+			mods.WriteByte('+')
+		case "Cmd":
+			// Windows has no Cmd; treat like Ctrl for cross-platform chords.
+			mods.WriteByte('^')
+		default:
+			return "", false
+		}
+	}
+	final := parts[len(parts)-1]
+	switch final {
+	case "Enter", "Return":
+		return mods.String() + "{ENTER}", true
+	case "Tab":
+		return mods.String() + "{TAB}", true
+	case "Escape":
+		return mods.String() + "{ESC}", true
+	case "Space":
+		return mods.String() + " ", true
+	default:
+		return mods.String() + sendKeysEscapeLiteral(final), true
 	}
 }
 

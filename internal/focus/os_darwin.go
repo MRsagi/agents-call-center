@@ -76,7 +76,54 @@ func darwinKeystrokeLine(key string) string {
 	case "Space":
 		return "keystroke space"
 	default:
+		if line, ok := darwinChordKeystrokeLine(key); ok {
+			return line
+		}
 		return fmt.Sprintf("keystroke %s", appleScriptString(key))
+	}
+}
+
+// darwinChordKeystrokeLine maps tokens like "Ctrl+m" / "Cmd+…" to osascript
+// keystroke lines with using {control down} / {command down} etc.
+func darwinChordKeystrokeLine(key string) (string, bool) {
+	parts := strings.Split(key, "+")
+	if len(parts) < 2 {
+		return "", false
+	}
+	var using []string
+	for _, p := range parts[:len(parts)-1] {
+		switch p {
+		case "Ctrl":
+			using = append(using, "control down")
+		case "Alt":
+			using = append(using, "option down")
+		case "Shift":
+			using = append(using, "shift down")
+		case "Cmd":
+			using = append(using, "command down")
+		default:
+			return "", false
+		}
+	}
+	final := parts[len(parts)-1]
+	stroke := darwinChordFinalKeystroke(final)
+	return fmt.Sprintf("%s using {%s}", stroke, strings.Join(using, ", ")), true
+}
+
+func darwinChordFinalKeystroke(final string) string {
+	switch final {
+	case "Enter":
+		return "key code 36"
+	case "Return":
+		return "keystroke return"
+	case "Tab":
+		return "key code 48"
+	case "Escape":
+		return "key code 53"
+	case "Space":
+		return "keystroke space"
+	default:
+		return fmt.Sprintf("keystroke %s", appleScriptString(final))
 	}
 }
 
