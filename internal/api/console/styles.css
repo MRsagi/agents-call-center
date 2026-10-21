@@ -1,0 +1,379 @@
+:root {
+  --bg: #f4f4f2;
+  --fg: #1a1a1a;
+  --muted: #5c5c5c;
+  --border: #c8c8c4;
+  --panel: #ffffff;
+  --accent: #2b5a8a;
+  --danger: #8a2b2b;
+  --warn-bg: #f5ead0;
+  --ok: #2d6a3e;
+  --down: #8a2b2b;
+  --banner: #e8f0f7;
+  --font: "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --mono: "Cascadia Mono", "Consolas", "Menlo", monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1c1c1c;
+    --fg: #e8e8e6;
+    --muted: #a0a0a0;
+    --border: #3a3a3a;
+    --panel: #262626;
+    --accent: #7ab0e0;
+    --danger: #e08080;
+    --warn-bg: #3a3420;
+    --ok: #7ec992;
+    --down: #e08080;
+    --banner: #243040;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--fg);
+  background: var(--bg);
+  min-height: 100vh;
+}
+
+.top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1.25rem;
+  padding: 0.85rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+}
+
+.top h1 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+
+.nav {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.nav-btn {
+  font: inherit;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  padding: 0.35rem 0.7rem;
+  cursor: pointer;
+  border-radius: 3px;
+}
+
+.nav-btn:hover {
+  color: var(--fg);
+}
+
+.nav-btn.active {
+  color: var(--fg);
+  border-color: var(--border);
+  background: var(--bg);
+}
+
+.chip {
+  margin-left: auto;
+  font-size: 0.8rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  text-transform: lowercase;
+}
+
+.chip.line-up {
+  color: var(--ok);
+}
+
+.chip.line-down {
+  color: var(--down);
+}
+
+main {
+  max-width: 52rem;
+  margin: 0 auto;
+  padding: 1.25rem;
+}
+
+.view[hidden] {
+  display: none !important;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.row h2 {
+  margin: 0;
+  flex: 1;
+}
+
+h2 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 1.25rem 0 0.5rem;
+}
+
+.prompt {
+  margin: 0.5rem 0 1rem;
+  padding: 1rem 1.1rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: var(--mono);
+  font-size: 1.15rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  min-height: 4.5rem;
+}
+
+.status-chip {
+  display: inline-block;
+  margin: 0;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--panel);
+  text-transform: lowercase;
+}
+
+.meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+  gap: 0.5rem 1rem;
+  margin: 0 0 0.5rem;
+}
+
+.meta div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.meta dt {
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.meta dd {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 0.9rem;
+}
+
+.banner {
+  margin: 0 0 0.75rem;
+  padding: 0.65rem 0.85rem;
+  background: var(--banner);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.banner.warn {
+  background: var(--warn-bg);
+}
+
+.hidden {
+  display: none !important;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.list li {
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--panel);
+  margin-bottom: 0.5rem;
+}
+
+.list .item-top {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.list .snippet {
+  font-family: var(--mono);
+  font-size: 0.9rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.list .sub {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-top: 0.35rem;
+}
+
+.list details {
+  margin-top: 0.35rem;
+}
+
+.list details summary {
+  cursor: pointer;
+  color: var(--accent);
+  font-size: 0.85rem;
+}
+
+.empty {
+  color: var(--muted);
+  font-style: italic;
+  padding: 0.5rem 0;
+}
+
+.btn {
+  font: inherit;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--fg);
+  padding: 0.35rem 0.75rem;
+  border-radius: 3px;
+}
+
+.btn:hover {
+  border-color: var(--muted);
+}
+
+.btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+@media (prefers-color-scheme: dark) {
+  .btn.primary {
+    color: #111;
+  }
+}
+
+.btn.danger {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.btn.small {
+  padding: 0.2rem 0.5rem;
+  font-size: 0.8rem;
+}
+
+.note {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin: 0 0 1rem;
+}
+
+.config-form fieldset {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem 1rem;
+  background: var(--panel);
+}
+
+.config-form legend {
+  padding: 0 0.35rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.config-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin: 0.55rem 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.config-form label.check {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.config-form input[type="text"],
+.config-form input[type="number"],
+.config-form select {
+  font: inherit;
+  font-family: var(--mono);
+  font-size: 0.9rem;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0.35rem 0.5rem;
+  width: 100%;
+  max-width: 28rem;
+}
+
+.config-form input[type="checkbox"] {
+  width: auto;
+}
+
+.env-badge {
+  display: inline-block;
+  margin-left: 0.35rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 2px;
+  padding: 0 0.3rem;
+  vertical-align: middle;
+}
+
+.msg {
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.msg.error {
+  color: var(--danger);
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.overlay p {
+  margin: 0;
+  padding: 1.25rem 1.75rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 1.1rem;
+}

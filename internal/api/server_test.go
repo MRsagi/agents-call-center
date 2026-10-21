@@ -389,7 +389,7 @@ func TestAPI_SSEReceivesEvent(t *testing.T) {
 	}
 }
 
-func TestAPI_ConsoleStub(t *testing.T) {
+func TestAPI_ConsoleUI(t *testing.T) {
 	a := testApp(t)
 	srv := httptest.NewServer(api.NewServer(a).Handler())
 	defer srv.Close()
@@ -403,7 +403,31 @@ func TestAPI_ConsoleStub(t *testing.T) {
 		t.Fatalf("console status=%d", resp.StatusCode)
 	}
 	body, _ := io.ReadAll(resp.Body)
-	if !bytes.Contains(body, []byte("Console")) && !bytes.Contains(bytes.ToLower(body), []byte("html")) {
-		t.Fatalf("unexpected console body: %s", body)
+	for _, want := range []string{
+		`id="prompt"`,
+		`id="dictation-banner"`,
+		`id="recent"`,
+		`id="vm-list"`,
+		`app.js`,
+		`styles.css`,
+	} {
+		if !bytes.Contains(body, []byte(want)) {
+			t.Fatalf("console index missing %q; body=%s", want, body)
+		}
+	}
+
+	for _, path := range []string{"/console/app.js", "/console/styles.css"} {
+		r, err := http.Get(srv.URL + path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		b, _ := io.ReadAll(r.Body)
+		r.Body.Close()
+		if r.StatusCode != http.StatusOK {
+			t.Fatalf("%s status=%d", path, r.StatusCode)
+		}
+		if len(b) == 0 {
+			t.Fatalf("%s empty", path)
+		}
 	}
 }

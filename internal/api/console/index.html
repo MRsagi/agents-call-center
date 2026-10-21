@@ -2,10 +2,121 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Agents Call Center — Console</title>
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <h1>Console</h1>
-  <p>Placeholder — full UI in Task 8.</p>
+  <header class="top">
+    <h1>Console</h1>
+    <nav class="nav" role="tablist">
+      <button type="button" class="nav-btn active" data-view="call">Call</button>
+      <button type="button" class="nav-btn" data-view="voicemail">Voicemail</button>
+      <button type="button" class="nav-btn" data-view="config">Config</button>
+    </nav>
+    <div id="line-chip" class="chip line-down" title="Line">line ?</div>
+  </header>
+
+  <main>
+    <section id="view-call" class="view active" data-view="call">
+      <div id="dictation-banner" class="banner hidden" role="status">
+        Dictating to foreground app — hang up to stop
+      </div>
+      <div id="dictation-warning" class="banner warn hidden" role="status">
+        Dictation hotkey sent; Phone Mic inactive or unavailable
+      </div>
+      <p id="call-status" class="status-chip">idle</p>
+      <pre id="prompt" class="prompt">No active call</pre>
+      <dl id="call-meta" class="meta">
+        <div><dt>Queue</dt><dd id="meta-queue">0</dd></div>
+        <div><dt>Focus</dt><dd id="meta-focus">—</dd></div>
+        <div><dt>Digits</dt><dd id="meta-digits">—</dd></div>
+        <div><dt>Delivery</dt><dd id="meta-delivery">—</dd></div>
+        <div><dt>Error</dt><dd id="meta-error">—</dd></div>
+        <div><dt>Voicemail</dt><dd id="meta-vm">0</dd></div>
+      </dl>
+      <h2>Recent</h2>
+      <ul id="recent" class="list"></ul>
+    </section>
+
+    <section id="view-voicemail" class="view" data-view="voicemail" hidden>
+      <div class="row">
+        <h2>Voicemail</h2>
+        <button type="button" id="vm-clear" class="btn danger">Clear all</button>
+      </div>
+      <ul id="vm-list" class="list"></ul>
+    </section>
+
+    <section id="view-config" class="view" data-view="config" hidden>
+      <h2>Config</h2>
+      <p class="note">
+        Secrets are visible here. Any local process can read localhost APIs.
+        Env-overridden fields (badge) are effective now; saving the file won’t stick until that env var is unset.
+      </p>
+      <form id="config-form" class="config-form" autocomplete="off">
+        <fieldset>
+          <legend>General</legend>
+          <label data-field="http_bind">HTTP bind <input name="http_bind" type="text"></label>
+          <label data-field="data_dir">Data dir <input name="data_dir" type="text"></label>
+          <label data-field="ring_timeout_ms">Ring timeout (ms) <input name="ring_timeout_ms" type="number" min="0"></label>
+          <label data-field="line_recover_wait_ms">Line recover wait (ms) <input name="line_recover_wait_ms" type="number" min="0"></label>
+          <label data-field="tray_enabled" class="check">Tray enabled <input name="tray_enabled" type="checkbox"></label>
+        </fieldset>
+        <fieldset>
+          <legend>Feature codes</legend>
+          <label data-field="feature_code">Voicemail code <input name="feature_code" type="text"></label>
+          <label data-field="idle_dictation_code">Idle Dictation code <input name="idle_dictation_code" type="text"></label>
+          <label data-field="dictation_hotkey">Dictation hotkey <input name="dictation_hotkey" type="text"></label>
+        </fieldset>
+        <fieldset>
+          <legend>Backends</legend>
+          <label data-field="line_backend">Line
+            <select name="line_backend">
+              <option value="fake">fake</option>
+              <option value="sip">sip</option>
+              <option value="virtual">virtual</option>
+            </select>
+          </label>
+          <label data-field="synth_backend">Synth
+            <select name="synth_backend">
+              <option value="fake">fake</option>
+              <option value="os">os</option>
+            </select>
+          </label>
+          <label data-field="focus_backend">Focus
+            <select name="focus_backend">
+              <option value="fake">fake</option>
+              <option value="os">os</option>
+            </select>
+          </label>
+          <label data-field="virtual_control_bind">Virtual control bind <input name="virtual_control_bind" type="text"></label>
+        </fieldset>
+        <fieldset>
+          <legend>SIP</legend>
+          <label data-field="sip_bind">Bind <input name="sip_bind" type="text"></label>
+          <label data-field="sip_user">User <input name="sip_user" type="text"></label>
+          <label data-field="sip_password">Password <input name="sip_password" type="text"></label>
+          <label data-field="sip_realm">Realm <input name="sip_realm" type="text"></label>
+          <label data-field="sip_extension">Extension <input name="sip_extension" type="text"></label>
+          <label data-field="sip_public_host">Public host <input name="sip_public_host" type="text"></label>
+        </fieldset>
+        <fieldset>
+          <legend>Phone Mic</legend>
+          <label data-field="phone_mic_enabled" class="check">Enabled <input name="phone_mic_enabled" type="checkbox"></label>
+          <label data-field="phone_mic_device">Device <input name="phone_mic_device" type="text"></label>
+        </fieldset>
+        <div class="row">
+          <button type="submit" class="btn primary">Save</button>
+          <span id="config-msg" class="msg" aria-live="polite"></span>
+        </div>
+      </form>
+    </section>
+  </main>
+
+  <div id="reconnect" class="overlay hidden" role="status" aria-live="assertive">
+    <p>Reconnecting…</p>
+  </div>
+
+  <script src="app.js"></script>
 </body>
 </html>
